@@ -1,7 +1,9 @@
     processor 6502
     include vcs.h
     org $F000
-
+	
+SpecialReg1 = $80
+	
 Start
     SEI ; disable interrupts
     CLD ; clear BCD math bit    
@@ -31,14 +33,25 @@ MainLoop
     LDA #0
     STA CTRLPF 
     
-    LDA #$3A
+    LDA #$30
     STA COLUPF
+	
+	LDA #$32
+	STA COLUP0
+	
+	LDA #$34
+	STA COLUP1
     
     
     LDA #0 
     STA PF0
     STA PF1
-    STA PF2     
+    STA PF2   
+
+	LDA #$80
+	STA HMP0
+	LDA #$60
+	STA HMP1
 
 WaitForVblankEnd
     LDA INTIM ; check to see if timer has run out       
@@ -49,7 +62,8 @@ WaitForVblankEnd
     LDY #191
     STA WSYNC ; WSYNC prevents VBLANK from turning on image mid-line
     STA VBLANK ; a = 0 from timer running out   
-    STA WSYNC
+    STA HMOVE
+	STA WSYNC
 
 ScanLoop
     STA WSYNC
@@ -59,24 +73,27 @@ ScanLoop
         
     LDA PF1SpriteA-1,Y
     STA PF1
+	
     
     LDA PF2SpriteA-1,Y 
     STA PF2 
    
-    NOP
-    NOP
-    NOP
-    NOP
+	STY SpecialReg1
+	EOR SpecialReg1
+	STA GRP0
 
  
     LDA PF0SpriteB-1,Y
     STA PF0 
     
     LDA PF1SpriteB-1,Y
-    STA PF1 
+    STA PF1
     
     LDA PF2SpriteB-1,Y
-    STA PF2 
+    STA PF2
+	
+	AND SpecialReg1
+	STA GRP1
     
     
 EndLine 
