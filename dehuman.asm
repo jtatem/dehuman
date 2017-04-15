@@ -3,7 +3,25 @@
     org $F000
 	
 SpecialReg1 = $80
-	
+SpecialReg2 = $81
+
+RangeUpperBound = $90
+RangeLowerBound = $91
+RangeUpperBoundDir = $92
+RangeLowerBoundDir = $93
+RangeUpperBoundSpeed = $94
+RangeLowerBoundSpeed = $95
+MasterScanlineCounter = $96
+
+RangeUpperMax = $A0
+RangeLowerMin = $A1
+RangeSizeMin = $A2
+RangeSizeMax = $A3
+
+RangeASize = $97
+RangeBSize = $98
+RangeCSize = $99
+
 Start
     SEI ; disable interrupts
     CLD ; clear BCD math bit    
@@ -14,6 +32,40 @@ ClearMem
     STA 0,X     ; put value of a (0) into the mem loc x+0
     DEX ; decrement x   
     BNE ClearMem ; keep looping til x hits 0
+	
+; Other pre-drawing setup
+    LDA #$FF
+	STA SpecialReg1 ; we'll use this as a decrementer
+	LDA #4
+	STA SpecialReg2
+	LDA #191
+	STA MasterScanlineCounter
+	
+; Setup sliding range initial values
+
+	LDA #180
+	STA RangeUpperMax
+	LDA #10
+	STA RangeLowerMin
+	LDA #5
+	STA RangeSizeMin
+	LDA #75
+	STA RangeSizeMax
+
+	LDA #125
+	STA RangeUpperBound
+	LDA #75
+	STA RangeLowerBound
+	LDA #1
+	STA RangeUpperBoundDir
+	LDA #0
+	STA RangeLowerBoundDir
+	LDA #1
+	STA RangeUpperBoundSpeed
+	LDA #1
+	STA RangeLowerBoundSpeed
+	
+
     
 ; Let's draw a frame    
 MainLoop
@@ -29,17 +81,30 @@ MainLoop
 
 ; Can use the cycles here for game logic, waiting for the visible
 ; portion of the display
-   
-    LDA #0
-    STA CTRLPF 
-    
-    LDA #$30
-    STA COLUPF
+
+
+;   	DEC SpecialReg2
+;	BNE NoColorChange
 	
-	LDA #$32
+;    LDX SpecialReg1
+	
+;	LDA RedColors-1,X
+;    STA COLUPF
+;	LDA RedColors-4,X
+;	STA COLUBK
+	
+;	LDA #4
+;	STA SpecialReg2
+
+NoColorChange
+	LDA #$36
+	STA COLUPF
+	LDA #$30
+	STA COLUBK
+	LDA #$12
 	STA COLUP0
 	
-	LDA #$34
+	LDA #$22
 	STA COLUP1
     
     
@@ -48,69 +113,514 @@ MainLoop
     STA PF1
     STA PF2   
 
-	LDA #$80
+	LDA #$90
 	STA HMP0
-	LDA #$60
+	LDA #$30
 	STA HMP1
+	
+	
+;	Apply range changes
+	
+	LDA RangeUpperBoundDir
+	CMP #1
+	BEQ RangeUpperBoundAdd
+	CMP #0
+	BEQ RangeUpperBoundSub
+RangeUpperBoundAdd
+	LDA RangeUpperBound
+	ADC RangeUpperBoundSpeed
+	STA RangeUpperBound
+	JMP RangeUpperBoundSpeedEnd
+RangeUpperBoundSub
+	LDA RangeUpperBound
+	SBC RangeUpperBoundSpeed
+	STA RangeUpperBound
+RangeUpperBoundSpeedEnd
+	CMP RangeUpperMax
+	BCC NoUpperBoundMaxReset
+	LDA RangeUpperMax
+	STA RangeUpperBound
+	LDA #0
+	STA RangeUpperBoundDir
+NoUpperBoundMaxReset
+	LDA RangeLowerBound
+	ADC RangeSizeMin
+	CMP RangeUpperBound
+	BCC NoUpperBoundMinReset
+	STA RangeUpperBound
+	LDA #1
+	STA RangeUpperBoundDir
+NoUpperBoundMinReset
+
+
+	LDA RangeLowerBoundDir
+	CMP #1
+	BEQ RangeLowerBoundAdd
+	CMP #0
+	BEQ RangeLowerBoundSub
+RangeLowerBoundAdd
+	LDA RangeLowerBound
+	ADC RangeLowerBoundSpeed
+	STA RangeLowerBound
+	JMP RangeLowerBoundSpeedEnd
+RangeLowerBoundSub
+	LDA RangeLowerBound
+	SBC RangeLowerBoundSpeed
+	STA RangeLowerBound
+RangeLowerBoundSpeedEnd
+	CMP RangeLowerMin
+	BCS NoLowerBoundMinReset
+	LDA RangeLowerMin
+	STA RangeLowerBound
+	LDA #1
+	STA RangeLowerBoundDir
+NoLowerBoundMinReset
+	LDA RangeUpperBound
+	SBC RangeSizeMin
+	CMP RangeLowerBound
+	BCS NoLowerBoundMaxReset
+	STA RangeLowerBound
+	LDA #0
+	STA RangeLowerBoundDir
+NoLowerBoundMaxReset
+
+
+	; Compute ranges
+
+	LDA #191
+	SBC RangeUpperBound
+	STA RangeASize
+	LDA RangeUpperBound
+	SBC RangeLowerBound
+	STA RangeBSize
+	LDA RangeLowerBound
+	STA RangeCSize
+	
+	
+	; Init iterator registers
+	
+	LDY RangeASize
+	LDX #191
+
 
 WaitForVblankEnd
-    LDA INTIM ; check to see if timer has run out       
-    BNE WaitForVblankEnd ; if it hasn't, keep waiting   
-    
-    
-    ;LDY #191 ; y = 191, allows y to be an index of which scanline we're on
-    LDY #191
-    STA WSYNC ; WSYNC prevents VBLANK from turning on image mid-line
-    STA VBLANK ; a = 0 from timer running out   
+    LDA INTIM     
+    BNE WaitForVblankEnd 
+    STA WSYNC 
+    STA VBLANK ; needs to be 0, we get that from timer end
     STA HMOVE
 	STA WSYNC
 
-ScanLoop
+ScanLoopA
     STA WSYNC
     
-    LDA PF0SpriteA-1,Y
+    LDA PF0SpriteA-1,X
     STA PF0 
         
-    LDA PF1SpriteA-1,Y
+    LDA PF1SpriteA-1,X
     STA PF1
 	
     
-    LDA PF2SpriteA-1,Y 
+    LDA PF2SpriteA-1,X
     STA PF2 
    
-	STY SpecialReg1
-	EOR SpecialReg1
 	STA GRP0
-
  
-    LDA PF0SpriteB-1,Y
+    LDA PF0SpriteB-1,X
     STA PF0 
     
-    LDA PF1SpriteB-1,Y
+    LDA PF1SpriteB-1,X
     STA PF1
     
-    LDA PF2SpriteB-1,Y
+    LDA PF2SpriteB-1,X
     STA PF2
 	
-	AND SpecialReg1
 	STA GRP1
     
     
-EndLine 
+EndLineA 
 
+	DEX
     DEY
-    BNE ScanLoop ; keep going til we run out of scanlines       
+    BNE ScanLoopA
+	STA WSYNC
+	LDY RangeBSize
+	LDA #$96
+	STA COLUPF
+	LDA #$82
+	STA COLUBK
+	JMP ScanLoopBWsyncBypass
 
+ScanLoopB
+    STA WSYNC
+ScanLoopBWsyncBypass
+
+    LDA AltPF0SpriteA-1,X
+    STA PF0 
+        
+    LDA AltPF1SpriteA-1,X
+    STA PF1
+	
+    
+    LDA AltPF2SpriteA-1,X
+    STA PF2 
+   
+	STA GRP0
+ 
+    LDA AltPF0SpriteB-1,X
+    STA PF0 
+    
+    LDA AltPF1SpriteB-1,X
+    STA PF1
+	
+	NOP
+	NOP
+    
+    LDA AltPF2SpriteB-1,X
+    STA PF2
+	
+	STA GRP1
+	
+	;LDA RedColors-1,X
+	;LDA #$3A
+	;STA COLUP0
+	;LDA #$24
+	;STA COLUP1
+    
+    
+EndLineB 
+
+	DEX
+    DEY
+    BNE ScanLoopB
+	STA WSYNC
+	LDY RangeCSize
+	LDA #$36
+	STA COLUPF
+	LDA #$30
+	STA COLUBK
+	JMP ScanLoopCWsyncBypass
+
+ScanLoopC
+    STA WSYNC
+ScanLoopCWsyncBypass
+ 
+    LDA PF0SpriteA-1,X
+    STA PF0 
+        
+    LDA PF1SpriteA-1,X
+    STA PF1
+	
+    
+    LDA PF2SpriteA-1,X
+    STA PF2 
+   
+	STA GRP0
+ 
+    LDA PF0SpriteB-1,X
+    STA PF0 
+    
+    LDA PF1SpriteB-1,X
+    STA PF1
+	
+	NOP
+	NOP
+    
+    LDA PF2SpriteB-1,X
+    STA PF2
+	
+	STA GRP1
+	
+	LDA RedColors-1,X
+	STA COLUP0
+	STA COLUP1
+    
+    
+EndLineC
+
+	DEX
+    DEY
+    BNE ScanLoopC ; keep going til we run out of scanlines  	
+	
     LDA #2      ; a = 2, will use that for VBLANK (make output invisible for overscan)  
-    STA WSYNC  ; finish prev line       
+    STA WSYNC     	
     STA VBLANK  ; disable output
     LDY #30      ; x = 30, 30 lines of overscan
+
+	DEC SpecialReg1
+	LDA SpecialReg1
+	BNE DontResetSpecial
+	LDA #$FF
+	STA SpecialReg1
+DontResetSpecial
+
+
+	
+
+; ^^More game logic can go here 
 OverScanWait
-; More game logic can go here 
-    STA WSYNC ; finish prev line
-    DEY ; decrement scanline index
-    BNE OverScanWait ; keep going til we run out of scanlines
-    JMP  MainLoop  ; start over for a new frame 
+    STA WSYNC 
+    DEY 
+    BNE OverScanWait 
+    JMP  MainLoop  
+RedColors
+	.byte #$20
+	.byte #$30
+	.byte #$22
+	.byte #$32
+	.byte #$34
+	.byte #$32
+	.byte #$22
+	.byte #$30
+	.byte #$20
+	.byte #$30
+	.byte #$22
+	.byte #$32
+	.byte #$34
+	.byte #$32
+	.byte #$22
+	.byte #$30
+	.byte #$20
+	.byte #$30
+	.byte #$22
+	.byte #$32
+	.byte #$34
+	.byte #$32
+	.byte #$22
+	.byte #$30
+	.byte #$20
+	.byte #$30
+	.byte #$22
+	.byte #$32
+	.byte #$34
+	.byte #$32
+	.byte #$22
+	.byte #$30
+	.byte #$20
+	.byte #$30
+	.byte #$22
+	.byte #$32
+	.byte #$34
+	.byte #$32
+	.byte #$22
+	.byte #$30
+	.byte #$20
+	.byte #$30
+	.byte #$22
+	.byte #$32
+	.byte #$34
+	.byte #$32
+	.byte #$22
+	.byte #$30
+	.byte #$20
+	.byte #$30
+	.byte #$22
+	.byte #$32
+	.byte #$34
+	.byte #$32
+	.byte #$22
+	.byte #$30
+	.byte #$20
+	.byte #$30
+	.byte #$22
+	.byte #$32
+	.byte #$34
+	.byte #$32
+	.byte #$22
+	.byte #$30
+	.byte #$20
+	.byte #$30
+	.byte #$22
+	.byte #$32
+	.byte #$34
+	.byte #$32
+	.byte #$22
+	.byte #$30
+	.byte #$20
+	.byte #$30
+	.byte #$22
+	.byte #$32
+	.byte #$34
+	.byte #$32
+	.byte #$22
+	.byte #$30
+	.byte #$20
+	.byte #$30
+	.byte #$22
+	.byte #$32
+	.byte #$34
+	.byte #$32
+	.byte #$22
+	.byte #$30
+	.byte #$20
+	.byte #$30
+	.byte #$22
+	.byte #$32
+	.byte #$34
+	.byte #$32
+	.byte #$22
+	.byte #$30
+	.byte #$20
+	.byte #$30
+	.byte #$22
+	.byte #$32
+	.byte #$34
+	.byte #$32
+	.byte #$22
+	.byte #$30
+	.byte #$20
+	.byte #$30
+	.byte #$22
+	.byte #$32
+	.byte #$34
+	.byte #$32
+	.byte #$22
+	.byte #$30
+	.byte #$20
+	.byte #$30
+	.byte #$22
+	.byte #$32
+	.byte #$34
+	.byte #$32
+	.byte #$22
+	.byte #$30
+	.byte #$20
+	.byte #$30
+	.byte #$22
+	.byte #$32
+	.byte #$34
+	.byte #$32
+	.byte #$22
+	.byte #$30
+	.byte #$20
+	.byte #$30
+	.byte #$22
+	.byte #$32
+	.byte #$34
+	.byte #$32
+	.byte #$22
+	.byte #$30
+	.byte #$20
+	.byte #$30
+	.byte #$22
+	.byte #$32
+	.byte #$34
+	.byte #$32
+	.byte #$22
+	.byte #$30
+	.byte #$20
+	.byte #$30
+	.byte #$22
+	.byte #$32
+	.byte #$34
+	.byte #$32
+	.byte #$22
+	.byte #$30
+	.byte #$20
+	.byte #$30
+	.byte #$22
+	.byte #$32
+	.byte #$34
+	.byte #$32
+	.byte #$22
+	.byte #$30
+	.byte #$20
+	.byte #$30
+	.byte #$22
+	.byte #$32
+	.byte #$34
+	.byte #$32
+	.byte #$22
+	.byte #$30
+	.byte #$20
+	.byte #$30
+	.byte #$22
+	.byte #$32
+	.byte #$34
+	.byte #$32
+	.byte #$22
+	.byte #$30
+	.byte #$20
+	.byte #$30
+	.byte #$22
+	.byte #$32
+	.byte #$34
+	.byte #$32
+	.byte #$22
+	.byte #$30
+	.byte #$20
+	.byte #$30
+	.byte #$22
+	.byte #$32
+	.byte #$34
+	.byte #$32
+	.byte #$22
+	.byte #$30
+	.byte #$20
+	.byte #$30
+	.byte #$22
+	.byte #$32
+	.byte #$34
+	.byte #$32
+	.byte #$22
+	.byte #$30
+	.byte #$20
+	.byte #$30
+	.byte #$22
+	.byte #$32
+	.byte #$34
+	.byte #$32
+	.byte #$22
+	.byte #$30
+	.byte #$20
+	.byte #$30
+	.byte #$22
+	.byte #$32
+	.byte #$34
+	.byte #$32
+	.byte #$22
+	.byte #$30
+	.byte #$20
+	.byte #$30
+	.byte #$22
+	.byte #$32
+	.byte #$34
+	.byte #$32
+	.byte #$22
+	.byte #$30
+	.byte #$20
+	.byte #$30
+	.byte #$22
+	.byte #$32
+	.byte #$34
+	.byte #$32
+	.byte #$22
+	.byte #$30
+	.byte #$20
+	.byte #$30
+	.byte #$22
+	.byte #$32
+	.byte #$34
+	.byte #$32
+	.byte #$22
+	.byte #$30
+	.byte #$20
+	.byte #$30
+	.byte #$22
+	.byte #$32
+	.byte #$34
+	.byte #$32
+	.byte #$22
+	.byte #$30
+	.byte #$20
+	.byte #$30
+	.byte #$22
+	.byte #$32
+	.byte #$34
+	.byte #$32
+	.byte #$22
+	.byte #$30
+	
 PF0SpriteA
     .byte #%00000000
     .byte #%00000000
@@ -1269,6 +1779,1168 @@ PF2SpriteB
     .byte #%11101110
     .byte #%11101110
     .byte #%11101110
+
+    .byte #%00000000
+    .byte #%00000000
+	
+AltPF0SpriteA
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+AltPF0SpriteB
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%10000000
+    .byte #%10000000
+    .byte #%10000000
+    .byte #%10000000
+    .byte #%10000000
+    .byte #%10000000
+    .byte #%10000000
+    .byte #%10000000
+    .byte #%01110000
+    .byte #%01110000
+    .byte #%01110000
+    .byte #%01110000
+    .byte #%01110000
+    .byte #%01110000
+    .byte #%01110000
+    .byte #%01110000
+    .byte #%10000000
+    .byte #%10000000
+    .byte #%10000000
+    .byte #%10000000
+    .byte #%10000000
+    .byte #%10000000
+    .byte #%10000000
+    .byte #%10000000
+    .byte #%11110000
+    .byte #%11110000
+    .byte #%11110000
+    .byte #%11110000
+    .byte #%11110000
+    .byte #%11110000
+    .byte #%11110000
+    .byte #%11110000
+    .byte #%10100000
+    .byte #%10100000
+    .byte #%10100000
+    .byte #%10100000
+    .byte #%10100000
+    .byte #%10100000
+    .byte #%10100000
+    .byte #%10100000
+    .byte #%01010000
+    .byte #%01010000
+    .byte #%01010000
+    .byte #%01010000
+    .byte #%01010000
+    .byte #%01010000
+    .byte #%01010000
+    .byte #%01010000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00010000
+    .byte #%00010000
+    .byte #%00010000
+    .byte #%00010000
+    .byte #%00010000
+    .byte #%00010000
+    .byte #%00010000
+    .byte #%00010000
+    .byte #%10000000
+    .byte #%10000000
+    .byte #%10000000
+    .byte #%10000000
+    .byte #%10000000
+    .byte #%10000000
+    .byte #%10000000
+    .byte #%10000000
+    .byte #%11000000
+    .byte #%11000000
+    .byte #%11000000
+    .byte #%11000000
+    .byte #%11000000
+    .byte #%11000000
+    .byte #%11000000
+    .byte #%11000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%11110000
+    .byte #%11110000
+    .byte #%11110000
+    .byte #%11110000
+    .byte #%11110000
+    .byte #%11110000
+    .byte #%11110000
+    .byte #%11110000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+AltPF1SpriteA
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00111000
+    .byte #%00111000
+    .byte #%00111000
+    .byte #%00111000
+    .byte #%00111000
+    .byte #%00111000
+    .byte #%00111000
+    .byte #%00111000
+    .byte #%00000111
+    .byte #%00000111
+    .byte #%00000111
+    .byte #%00000111
+    .byte #%00000111
+    .byte #%00000111
+    .byte #%00000111
+    .byte #%00000111
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000111
+    .byte #%00000111
+    .byte #%00000111
+    .byte #%00000111
+    .byte #%00000111
+    .byte #%00000111
+    .byte #%00000111
+    .byte #%00000111
+    .byte #%00111000
+    .byte #%00111000
+    .byte #%00111000
+    .byte #%00111000
+    .byte #%00111000
+    .byte #%00111000
+    .byte #%00111000
+    .byte #%00111000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+AltPF1SpriteB
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000111
+    .byte #%00000111
+    .byte #%00000111
+    .byte #%00000111
+    .byte #%00000111
+    .byte #%00000111
+    .byte #%00000111
+    .byte #%00000111
+    .byte #%00111000
+    .byte #%00111000
+    .byte #%00111000
+    .byte #%00111000
+    .byte #%00111000
+    .byte #%00111000
+    .byte #%00111000
+    .byte #%00111000
+    .byte #%11000000
+    .byte #%11000000
+    .byte #%11000000
+    .byte #%11000000
+    .byte #%11000000
+    .byte #%11000000
+    .byte #%11000000
+    .byte #%11000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%11000000
+    .byte #%11000000
+    .byte #%11000000
+    .byte #%11000000
+    .byte #%11000000
+    .byte #%11000000
+    .byte #%11000000
+    .byte #%11000000
+    .byte #%00111000
+    .byte #%00111000
+    .byte #%00111000
+    .byte #%00111000
+    .byte #%00111000
+    .byte #%00111000
+    .byte #%00111000
+    .byte #%00111000
+    .byte #%10000111
+    .byte #%10000111
+    .byte #%10000111
+    .byte #%10000111
+    .byte #%10000111
+    .byte #%10000111
+    .byte #%10000111
+    .byte #%10000111
+    .byte #%10000000
+    .byte #%10000000
+    .byte #%10000000
+    .byte #%10000000
+    .byte #%10000000
+    .byte #%10000000
+    .byte #%10000000
+    .byte #%10000000
+    .byte #%01000000
+    .byte #%01000000
+    .byte #%01000000
+    .byte #%01000000
+    .byte #%01000000
+    .byte #%01000000
+    .byte #%01000000
+    .byte #%01000000
+    .byte #%00100000
+    .byte #%00100000
+    .byte #%00100000
+    .byte #%00100000
+    .byte #%00100000
+    .byte #%00100000
+    .byte #%00100000
+    .byte #%00100000
+    .byte #%00100000
+    .byte #%00100000
+    .byte #%00100000
+    .byte #%00100000
+    .byte #%00100000
+    .byte #%00100000
+    .byte #%00100000
+    .byte #%00100000
+    .byte #%00100000
+    .byte #%00100000
+    .byte #%00100000
+    .byte #%00100000
+    .byte #%00100000
+    .byte #%00100000
+    .byte #%00100000
+    .byte #%00100000
+    .byte #%01000000
+    .byte #%01000000
+    .byte #%01000000
+    .byte #%01000000
+    .byte #%01000000
+    .byte #%01000000
+    .byte #%01000000
+    .byte #%01000000
+    .byte #%10000000
+    .byte #%10000000
+    .byte #%10000000
+    .byte #%10000000
+    .byte #%10000000
+    .byte #%10000000
+    .byte #%10000000
+    .byte #%10000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+AltPF2SpriteA
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000111
+    .byte #%00000111
+    .byte #%00000111
+    .byte #%00000111
+    .byte #%00000111
+    .byte #%00000111
+    .byte #%00000111
+    .byte #%00000111
+    .byte #%00111000
+    .byte #%00111000
+    .byte #%00111000
+    .byte #%00111000
+    .byte #%00111000
+    .byte #%00111000
+    .byte #%00111000
+    .byte #%00111000
+    .byte #%11000000
+    .byte #%11000000
+    .byte #%11000000
+    .byte #%11000000
+    .byte #%11000000
+    .byte #%11000000
+    .byte #%11000000
+    .byte #%11000000
+    .byte #%00111000
+    .byte #%00111000
+    .byte #%00111000
+    .byte #%00111000
+    .byte #%00111000
+    .byte #%00111000
+    .byte #%00111000
+    .byte #%00111000
+    .byte #%11100111
+    .byte #%11100111
+    .byte #%11100111
+    .byte #%11100111
+    .byte #%11100111
+    .byte #%11100111
+    .byte #%11100111
+    .byte #%11100111
+    .byte #%10110000
+    .byte #%10110000
+    .byte #%10110000
+    .byte #%10110000
+    .byte #%10110000
+    .byte #%10110000
+    .byte #%10110000
+    .byte #%10110000
+    .byte #%01010000
+    .byte #%01010000
+    .byte #%01010000
+    .byte #%01010000
+    .byte #%01010000
+    .byte #%01010000
+    .byte #%01010000
+    .byte #%01010000
+    .byte #%00001000
+    .byte #%00001000
+    .byte #%00001000
+    .byte #%00001000
+    .byte #%00001000
+    .byte #%00001000
+    .byte #%00001000
+    .byte #%00001000
+    .byte #%00000100
+    .byte #%00000100
+    .byte #%00000100
+    .byte #%00000100
+    .byte #%00000100
+    .byte #%00000100
+    .byte #%00000100
+    .byte #%00000100
+    .byte #%00100100
+    .byte #%00100100
+    .byte #%00100100
+    .byte #%00100100
+    .byte #%00100100
+    .byte #%00100100
+    .byte #%00100100
+    .byte #%00100100
+    .byte #%01100100
+    .byte #%01100100
+    .byte #%01100100
+    .byte #%01100100
+    .byte #%01100100
+    .byte #%01100100
+    .byte #%01100100
+    .byte #%01100100
+    .byte #%00001000
+    .byte #%00001000
+    .byte #%00001000
+    .byte #%00001000
+    .byte #%00001000
+    .byte #%00001000
+    .byte #%00001000
+    .byte #%00001000
+    .byte #%11110000
+    .byte #%11110000
+    .byte #%11110000
+    .byte #%11110000
+    .byte #%11110000
+    .byte #%11110000
+    .byte #%11110000
+    .byte #%11110000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+AltPF2SpriteB
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000111
+    .byte #%00000111
+    .byte #%00000111
+    .byte #%00000111
+    .byte #%00000111
+    .byte #%00000111
+    .byte #%00000111
+    .byte #%00000111
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000111
+    .byte #%00000111
+    .byte #%00000111
+    .byte #%00000111
+    .byte #%00000111
+    .byte #%00000111
+    .byte #%00000111
+    .byte #%00000111
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
 
     .byte #%00000000
     .byte #%00000000
