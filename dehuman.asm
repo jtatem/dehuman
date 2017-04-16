@@ -2,9 +2,9 @@
     include vcs.h
     org $F000
 	
-SpecialReg1 = $80
-SpecialReg2 = $81
 
+rand1 = $80
+rand2 = $81
 RangeUpperBound = $90
 RangeLowerBound = $91
 RangeUpperBoundDir = $92
@@ -22,6 +22,28 @@ RangeASize = $97
 RangeBSize = $98
 RangeCSize = $99
 
+BgColOuter = $A4
+FgColOuter = $A5
+BgColInner = $A6
+FgColInner = $A7
+ColorChangeCounter = $B0
+ColorChangePointer = $B1
+Player0ColOuter = $B2
+Player1ColOuter = $B3
+Player0ColInner = $B4
+Player1ColInner = $B5
+
+
+
+SpeedChangeCounter = $A8
+SpeedChangePointer = $A9
+Player0Speed = $AA
+Player1Speed = $AB
+
+
+
+
+
 Start
     SEI ; disable interrupts
     CLD ; clear BCD math bit    
@@ -34,22 +56,26 @@ ClearMem
     BNE ClearMem ; keep looping til x hits 0
 	
 ; Other pre-drawing setup
-    LDA #$FF
-	STA SpecialReg1 ; we'll use this as a decrementer
-	LDA #4
-	STA SpecialReg2
+	LDA #7
+	STA ColorChangePointer
+	LDA #6
+	STA ColorChangeCounter
+	LDA #29
+	STA SpeedChangePointer
+	LDA #10
+	STA SpeedChangeCounter
 	LDA #191
 	STA MasterScanlineCounter
 	
 ; Setup sliding range initial values
 
-	LDA #180
+	LDA #185
 	STA RangeUpperMax
-	LDA #10
-	STA RangeLowerMin
 	LDA #5
+	STA RangeLowerMin
+	LDA #3
 	STA RangeSizeMin
-	LDA #75
+	LDA #100
 	STA RangeSizeMax
 
 	LDA #125
@@ -65,6 +91,10 @@ ClearMem
 	LDA #1
 	STA RangeLowerBoundSpeed
 	
+	LDA #77
+	STA rand1
+	LDA #202
+	STA rand2
 
     
 ; Let's draw a frame    
@@ -79,46 +109,55 @@ MainLoop
     LDA #0      ; a = 0, need 0 for disabling VSYNC     
     STA  VSYNC  ; disable vsync
 
-; Can use the cycles here for game logic, waiting for the visible
-; portion of the display
+; SAFE ZONE FOR PRE-VISIBLE FRAME STUFF
 
 
-;   	DEC SpecialReg2
-;	BNE NoColorChange
 	
-;    LDX SpecialReg1
-	
-;	LDA RedColors-1,X
-;    STA COLUPF
-;	LDA RedColors-4,X
-;	STA COLUBK
-	
-;	LDA #4
-;	STA SpecialReg2
+	DEC ColorChangeCounter
+	BNE EndColorChangeBlock
+	LDX ColorChangePointer
+	LDA RedColors-1,X
+	STA FgColOuter
+	LDA RedColors,X
+	STA BgColOuter
+	LDA RedColors+2,X
+	STA Player0ColOuter
+	LDA RedColors+3,X
+	STA Player1ColOuter
+	LDA GrayCycle-1,X
+	STA FgColInner
+	LDA GrayCycle,X
+	STA BgColInner
+	LDA GrayCycle+2,X
+	STA Player0ColInner
+	LDA GrayCycle+3,X
+	STA Player1ColInner
+	LDA #7
+	STA ColorChangeCounter
+	DEC ColorChangePointer
+	BNE EndColorChangeBlock
+	LDA #7
+	STA ColorChangePointer
+EndColorChangeBlock    
 
-NoColorChange
-	LDA #$36
-	STA COLUPF
-	LDA #$30
-	STA COLUBK
-	LDA #$12
-	STA COLUP0
-	
-	LDA #$22
-	STA COLUP1
+
+	DEC SpeedChangeCounter
+	BNE EndSpeedChangeBlock
+	LDX SpeedChangePointer
+	LDA Player0SpeedRange-1,X
+	STA Player0Speed
+	LDA Player1SpeedRange,X
+	STA Player1Speed
+	LDA #10
+	STA SpeedChangeCounter
+	DEC SpeedChangePointer
+	BNE EndSpeedChangeBlock
+	LDA #29
+	STA SpeedChangePointer
+
+EndSpeedChangeBlock
     
-    
-    LDA #0 
-    STA PF0
-    STA PF1
-    STA PF2   
 
-	LDA #$90
-	STA HMP0
-	LDA #$30
-	STA HMP1
-	
-	
 ;	Apply range changes
 	
 	LDA RangeUpperBoundDir
@@ -142,6 +181,12 @@ RangeUpperBoundSpeedEnd
 	STA RangeUpperBound
 	LDA #0
 	STA RangeUpperBoundDir
+	LDA RangeUpperBoundSpeed
+	CMP #1
+	BEQ IncreaseUpperBoundSpeed
+	LDA #1
+	STA RangeUpperBoundSpeed
+	JMP NoUpperBoundMaxReset
 NoUpperBoundMaxReset
 	LDA RangeLowerBound
 	ADC RangeSizeMin
@@ -150,6 +195,15 @@ NoUpperBoundMaxReset
 	STA RangeUpperBound
 	LDA #1
 	STA RangeUpperBoundDir
+	LDA RangeUpperBoundSpeed
+	CMP #1
+	BEQ IncreaseUpperBoundSpeed
+	LDA #1
+	STA RangeUpperBoundSpeed
+	JMP NoUpperBoundMinReset
+IncreaseUpperBoundSpeed
+	LDA #3
+	STA RangeUpperBoundSpeed
 NoUpperBoundMinReset
 
 
@@ -174,6 +228,11 @@ RangeLowerBoundSpeedEnd
 	STA RangeLowerBound
 	LDA #1
 	STA RangeLowerBoundDir
+	LDA RangeLowerBoundSpeed
+	CMP #1
+	BEQ IncreaseLowerBoundSpeed
+	LDA #1
+	STA RangeLowerBoundSpeed
 NoLowerBoundMinReset
 	LDA RangeUpperBound
 	SBC RangeSizeMin
@@ -182,6 +241,15 @@ NoLowerBoundMinReset
 	STA RangeLowerBound
 	LDA #0
 	STA RangeLowerBoundDir
+	LDA RangeLowerBoundSpeed
+	CMP #1
+	BEQ IncreaseLowerBoundSpeed
+	LDA #1
+	STA RangeLowerBoundSpeed
+	JMP NoLowerBoundMaxReset
+IncreaseLowerBoundSpeed
+	LDA #2
+	STA RangeLowerBoundSpeed
 NoLowerBoundMaxReset
 
 
@@ -201,7 +269,31 @@ NoLowerBoundMaxReset
 	
 	LDY RangeASize
 	LDX #191
+	
+	; Set colors for first region
+	
+	LDA FgColOuter
+	STA COLUPF
+	LDA BgColOuter
+	STA COLUBK
+	LDA Player0ColOuter
+	STA COLUP0
+	LDA Player1ColOuter
+	STA COLUP1
+	
+	JSR randomize
+	STA GRP0
+	JSR randomize
+	STA GRP1
+	
+	; Set player speeds
+	
+	LDA Player0Speed
+	STA HMP0
+	LDA Player1Speed
+	STA HMP1
 
+; END SAFE ZONE FOR PRE-VISIBLE FRAME STUFF
 
 WaitForVblankEnd
     LDA INTIM     
@@ -224,18 +316,20 @@ ScanLoopA
     LDA PF2SpriteA-1,X
     STA PF2 
    
-	STA GRP0
  
     LDA PF0SpriteB-1,X
     STA PF0 
     
     LDA PF1SpriteB-1,X
     STA PF1
+	
+	NOP
+	NOP
+	NOP
     
     LDA PF2SpriteB-1,X
     STA PF2
 	
-	STA GRP1
     
     
 EndLineA 
@@ -245,10 +339,14 @@ EndLineA
     BNE ScanLoopA
 	STA WSYNC
 	LDY RangeBSize
-	LDA #$96
+	LDA FgColInner
 	STA COLUPF
-	LDA #$82
+	LDA BgColInner
 	STA COLUBK
+	LDA Player0ColInner
+	STA COLUP0
+	LDA Player1ColInner
+	STA COLUP1
 	JMP ScanLoopBWsyncBypass
 
 ScanLoopB
@@ -265,7 +363,8 @@ ScanLoopBWsyncBypass
     LDA AltPF2SpriteA-1,X
     STA PF2 
    
-	STA GRP0
+    NOP
+	
  
     LDA AltPF0SpriteB-1,X
     STA PF0 
@@ -279,13 +378,7 @@ ScanLoopBWsyncBypass
     LDA AltPF2SpriteB-1,X
     STA PF2
 	
-	STA GRP1
-	
-	;LDA RedColors-1,X
-	;LDA #$3A
-	;STA COLUP0
-	;LDA #$24
-	;STA COLUP1
+
     
     
 EndLineB 
@@ -295,10 +388,14 @@ EndLineB
     BNE ScanLoopB
 	STA WSYNC
 	LDY RangeCSize
-	LDA #$36
+	LDA FgColOuter
 	STA COLUPF
-	LDA #$30
+	LDA BgColOuter
 	STA COLUBK
+	LDA Player0ColOuter
+	STA COLUP0
+	LDA Player1ColOuter
+	STA COLUP1
 	JMP ScanLoopCWsyncBypass
 
 ScanLoopC
@@ -315,25 +412,24 @@ ScanLoopCWsyncBypass
     LDA PF2SpriteA-1,X
     STA PF2 
    
-	STA GRP0
  
     LDA PF0SpriteB-1,X
     STA PF0 
     
+	NOP
+	
     LDA PF1SpriteB-1,X
     STA PF1
 	
 	NOP
 	NOP
+	
+	
     
     LDA PF2SpriteB-1,X
     STA PF2
 	
-	STA GRP1
 	
-	LDA RedColors-1,X
-	STA COLUP0
-	STA COLUP1
     
     
 EndLineC
@@ -345,24 +441,99 @@ EndLineC
     LDA #2      ; a = 2, will use that for VBLANK (make output invisible for overscan)  
     STA WSYNC     	
     STA VBLANK  ; disable output
-    LDY #30      ; x = 30, 30 lines of overscan
 
-	DEC SpecialReg1
-	LDA SpecialReg1
-	BNE DontResetSpecial
-	LDA #$FF
-	STA SpecialReg1
-DontResetSpecial
-
-
+; OVERSCAN START
 	
+	LDA #33 ; 2,112 CPU cycles, what will we ever do with the time???
+	STA TIM64T	
 
-; ^^More game logic can go here 
+; OVERSCAN END
 OverScanWait
-    STA WSYNC 
-    DEY 
-    BNE OverScanWait 
-    JMP  MainLoop  
+	LDA INTIM
+    BNE OverScanWait
+	STA WSYNC
+    JMP  MainLoop
+	
+randomize
+	lda rand1
+	asl
+	ror rand2
+	bcc noEor1
+	eor #$DB
+noEor1:
+	asl
+	ror rand2
+	bcc noEor2
+	eor #$DB
+noEor2:
+	sta rand1
+	eor rand2
+	rts
+
+Player0SpeedRange
+	.byte #$00
+	.byte #$10
+	.byte #$20
+	.byte #$30
+	.byte #$40
+	.byte #$50
+	.byte #$60
+	.byte #$70
+	.byte #$80
+	.byte #$90
+	.byte #$A0
+	.byte #$B0
+	.byte #$C0
+	.byte #$D0
+	.byte #$E0
+	.byte #$F0
+	.byte #$E0
+	.byte #$D0
+	.byte #$C0
+	.byte #$B0
+	.byte #$A0
+	.byte #$90
+	.byte #$80
+	.byte #$70
+	.byte #$60
+	.byte #$50
+	.byte #$40
+	.byte #$30
+	.byte #$20
+	.byte #$10
+	
+Player1SpeedRange
+	.byte #$40
+	.byte #$50
+	.byte #$60
+	.byte #$70
+	.byte #$80
+	.byte #$90
+	.byte #$A0
+	.byte #$B0
+	.byte #$C0
+	.byte #$D0
+	.byte #$E0
+	.byte #$F0
+	.byte #$E0
+	.byte #$D0
+	.byte #$C0
+	.byte #$B0
+	.byte #$A0
+	.byte #$90
+	.byte #$80
+	.byte #$70
+	.byte #$60
+	.byte #$50
+	.byte #$40
+	.byte #$30
+	.byte #$20
+	.byte #$10
+	.byte #$00
+	.byte #$10
+	.byte #$20
+	.byte #$30
+
 RedColors
 	.byte #$20
 	.byte #$30
@@ -380,246 +551,24 @@ RedColors
 	.byte #$32
 	.byte #$22
 	.byte #$30
-	.byte #$20
-	.byte #$30
-	.byte #$22
-	.byte #$32
-	.byte #$34
-	.byte #$32
-	.byte #$22
-	.byte #$30
-	.byte #$20
-	.byte #$30
-	.byte #$22
-	.byte #$32
-	.byte #$34
-	.byte #$32
-	.byte #$22
-	.byte #$30
-	.byte #$20
-	.byte #$30
-	.byte #$22
-	.byte #$32
-	.byte #$34
-	.byte #$32
-	.byte #$22
-	.byte #$30
-	.byte #$20
-	.byte #$30
-	.byte #$22
-	.byte #$32
-	.byte #$34
-	.byte #$32
-	.byte #$22
-	.byte #$30
-	.byte #$20
-	.byte #$30
-	.byte #$22
-	.byte #$32
-	.byte #$34
-	.byte #$32
-	.byte #$22
-	.byte #$30
-	.byte #$20
-	.byte #$30
-	.byte #$22
-	.byte #$32
-	.byte #$34
-	.byte #$32
-	.byte #$22
-	.byte #$30
-	.byte #$20
-	.byte #$30
-	.byte #$22
-	.byte #$32
-	.byte #$34
-	.byte #$32
-	.byte #$22
-	.byte #$30
-	.byte #$20
-	.byte #$30
-	.byte #$22
-	.byte #$32
-	.byte #$34
-	.byte #$32
-	.byte #$22
-	.byte #$30
-	.byte #$20
-	.byte #$30
-	.byte #$22
-	.byte #$32
-	.byte #$34
-	.byte #$32
-	.byte #$22
-	.byte #$30
-	.byte #$20
-	.byte #$30
-	.byte #$22
-	.byte #$32
-	.byte #$34
-	.byte #$32
-	.byte #$22
-	.byte #$30
-	.byte #$20
-	.byte #$30
-	.byte #$22
-	.byte #$32
-	.byte #$34
-	.byte #$32
-	.byte #$22
-	.byte #$30
-	.byte #$20
-	.byte #$30
-	.byte #$22
-	.byte #$32
-	.byte #$34
-	.byte #$32
-	.byte #$22
-	.byte #$30
-	.byte #$20
-	.byte #$30
-	.byte #$22
-	.byte #$32
-	.byte #$34
-	.byte #$32
-	.byte #$22
-	.byte #$30
-	.byte #$20
-	.byte #$30
-	.byte #$22
-	.byte #$32
-	.byte #$34
-	.byte #$32
-	.byte #$22
-	.byte #$30
-	.byte #$20
-	.byte #$30
-	.byte #$22
-	.byte #$32
-	.byte #$34
-	.byte #$32
-	.byte #$22
-	.byte #$30
-	.byte #$20
-	.byte #$30
-	.byte #$22
-	.byte #$32
-	.byte #$34
-	.byte #$32
-	.byte #$22
-	.byte #$30
-	.byte #$20
-	.byte #$30
-	.byte #$22
-	.byte #$32
-	.byte #$34
-	.byte #$32
-	.byte #$22
-	.byte #$30
-	.byte #$20
-	.byte #$30
-	.byte #$22
-	.byte #$32
-	.byte #$34
-	.byte #$32
-	.byte #$22
-	.byte #$30
-	.byte #$20
-	.byte #$30
-	.byte #$22
-	.byte #$32
-	.byte #$34
-	.byte #$32
-	.byte #$22
-	.byte #$30
-	.byte #$20
-	.byte #$30
-	.byte #$22
-	.byte #$32
-	.byte #$34
-	.byte #$32
-	.byte #$22
-	.byte #$30
-	.byte #$20
-	.byte #$30
-	.byte #$22
-	.byte #$32
-	.byte #$34
-	.byte #$32
-	.byte #$22
-	.byte #$30
-	.byte #$20
-	.byte #$30
-	.byte #$22
-	.byte #$32
-	.byte #$34
-	.byte #$32
-	.byte #$22
-	.byte #$30
-	.byte #$20
-	.byte #$30
-	.byte #$22
-	.byte #$32
-	.byte #$34
-	.byte #$32
-	.byte #$22
-	.byte #$30
-	.byte #$20
-	.byte #$30
-	.byte #$22
-	.byte #$32
-	.byte #$34
-	.byte #$32
-	.byte #$22
-	.byte #$30
-	.byte #$20
-	.byte #$30
-	.byte #$22
-	.byte #$32
-	.byte #$34
-	.byte #$32
-	.byte #$22
-	.byte #$30
-	.byte #$20
-	.byte #$30
-	.byte #$22
-	.byte #$32
-	.byte #$34
-	.byte #$32
-	.byte #$22
-	.byte #$30
-	.byte #$20
-	.byte #$30
-	.byte #$22
-	.byte #$32
-	.byte #$34
-	.byte #$32
-	.byte #$22
-	.byte #$30
-	.byte #$20
-	.byte #$30
-	.byte #$22
-	.byte #$32
-	.byte #$34
-	.byte #$32
-	.byte #$22
-	.byte #$30
-	.byte #$20
-	.byte #$30
-	.byte #$22
-	.byte #$32
-	.byte #$34
-	.byte #$32
-	.byte #$22
-	.byte #$30
-	.byte #$20
-	.byte #$30
-	.byte #$22
-	.byte #$32
-	.byte #$34
-	.byte #$32
-	.byte #$22
-	.byte #$30
+	
+GrayCycle
+	.byte #$00
+	.byte #$04
+	.byte #$08
+	.byte #$0A
+	.byte #$0E
+	.byte #$0A
+	.byte #$08
+	.byte #$04
+	.byte #$00
+	.byte #$04
+	.byte #$08
+	.byte #$0A
+	.byte #$0E
+	.byte #$0A
+	.byte #$08
+	.byte #$04
 	
 PF0SpriteA
     .byte #%00000000
@@ -2081,14 +2030,14 @@ AltPF0SpriteB
     .byte #%11110000
     .byte #%11110000
     .byte #%11110000
-    .byte #%10100000
-    .byte #%10100000
-    .byte #%10100000
-    .byte #%10100000
-    .byte #%10100000
-    .byte #%10100000
-    .byte #%10100000
-    .byte #%10100000
+    .byte #%11010000
+    .byte #%11010000
+    .byte #%11010000
+    .byte #%11010000
+    .byte #%11010000
+    .byte #%11010000
+    .byte #%11010000
+    .byte #%11010000
     .byte #%01010000
     .byte #%01010000
     .byte #%01010000
@@ -2210,40 +2159,38 @@ AltPF1SpriteA
     .byte #%00000000
     .byte #%00000000
     .byte #%00000000
-    .byte #%00000000
-    .byte #%00000000
-    .byte #%00000000
-    .byte #%00000000
-    .byte #%00000000
-    .byte #%00000000
-    .byte #%00000000
-    .byte #%00000000
-    .byte #%00111000
-    .byte #%00111000
-    .byte #%00111000
-    .byte #%00111000
-    .byte #%00111000
-    .byte #%00111000
-    .byte #%00111000
-    .byte #%00111000
-    .byte #%00000111
-    .byte #%00000111
-    .byte #%00000111
-    .byte #%00000111
-    .byte #%00000111
-    .byte #%00000111
-    .byte #%00000111
-    .byte #%00000111
-    .byte #%00000000
-    .byte #%00000000
-    .byte #%00000000
-    .byte #%00000000
-    .byte #%00000000
-    .byte #%00000000
-    .byte #%00000000
-    .byte #%00000000
-    .byte #%00000000
-    .byte #%00000000
+    .byte #%10000000
+    .byte #%10000000
+    .byte #%10000000
+    .byte #%10000000
+    .byte #%10000000
+    .byte #%10000000
+    .byte #%10000000
+    .byte #%10000000
+    .byte #%01110000
+    .byte #%01110000
+    .byte #%01110000
+    .byte #%01110000
+    .byte #%01110000
+    .byte #%01110000
+    .byte #%01110000
+    .byte #%01110000
+    .byte #%10001110
+    .byte #%10001110
+    .byte #%10001110
+    .byte #%10001110
+    .byte #%10001110
+    .byte #%10001110
+    .byte #%10001110
+    .byte #%10001110
+    .byte #%00000001
+    .byte #%00000001
+    .byte #%00000001
+    .byte #%00000001
+    .byte #%00000001
+    .byte #%00000001
+    .byte #%00000001
+    .byte #%00000001
     .byte #%00000000
     .byte #%00000000
     .byte #%00000000
@@ -2268,36 +2215,38 @@ AltPF1SpriteA
     .byte #%00000000
     .byte #%00000000
     .byte #%00000000
-    .byte #%00000000
-    .byte #%00000000
-    .byte #%00000000
-    .byte #%00000000
-    .byte #%00000000
-    .byte #%00000000
-    .byte #%00000111
-    .byte #%00000111
-    .byte #%00000111
-    .byte #%00000111
-    .byte #%00000111
-    .byte #%00000111
-    .byte #%00000111
-    .byte #%00000111
-    .byte #%00111000
-    .byte #%00111000
-    .byte #%00111000
-    .byte #%00111000
-    .byte #%00111000
-    .byte #%00111000
-    .byte #%00111000
-    .byte #%00111000
-    .byte #%00000000
-    .byte #%00000000
-    .byte #%00000000
-    .byte #%00000000
-    .byte #%00000000
-    .byte #%00000000
-    .byte #%00000000
-    .byte #%00000000
+    .byte #%00000001
+    .byte #%00000001
+    .byte #%00000001
+    .byte #%00000001
+    .byte #%00000001
+    .byte #%00000001
+    .byte #%00000001
+    .byte #%00000001
+    .byte #%10001110
+    .byte #%10001110
+    .byte #%10001110
+    .byte #%10001110
+    .byte #%10001110
+    .byte #%10001110
+    .byte #%10001110
+    .byte #%10001110
+    .byte #%01110000
+    .byte #%01110000
+    .byte #%01110000
+    .byte #%01110000
+    .byte #%01110000
+    .byte #%01110000
+    .byte #%01110000
+    .byte #%01110000
+    .byte #%01000000
+    .byte #%01000000
+    .byte #%01000000
+    .byte #%01000000
+    .byte #%01000000
+    .byte #%01000000
+    .byte #%01000000
+    .byte #%01000000
     .byte #%00000000
     .byte #%00000000
     .byte #%00000000
@@ -2467,14 +2416,14 @@ AltPF1SpriteB
     .byte #%00111000
     .byte #%00111000
     .byte #%00111000
-    .byte #%10000111
-    .byte #%10000111
-    .byte #%10000111
-    .byte #%10000111
-    .byte #%10000111
-    .byte #%10000111
-    .byte #%10000111
-    .byte #%10000111
+    .byte #%00000111
+    .byte #%00000111
+    .byte #%00000111
+    .byte #%00000111
+    .byte #%00000111
+    .byte #%00000111
+    .byte #%00000111
+    .byte #%00000111
     .byte #%10000000
     .byte #%10000000
     .byte #%10000000
@@ -2620,54 +2569,46 @@ AltPF2SpriteA
     .byte #%00000000
     .byte #%00000000
     .byte #%00000000
-    .byte #%00000111
-    .byte #%00000111
-    .byte #%00000111
-    .byte #%00000111
-    .byte #%00000111
-    .byte #%00000111
-    .byte #%00000111
-    .byte #%00000111
-    .byte #%00111000
-    .byte #%00111000
-    .byte #%00111000
-    .byte #%00111000
-    .byte #%00111000
-    .byte #%00111000
-    .byte #%00111000
-    .byte #%00111000
-    .byte #%11000000
-    .byte #%11000000
-    .byte #%11000000
-    .byte #%11000000
-    .byte #%11000000
-    .byte #%11000000
-    .byte #%11000000
-    .byte #%11000000
-    .byte #%00111000
-    .byte #%00111000
-    .byte #%00111000
-    .byte #%00111000
-    .byte #%00111000
-    .byte #%00111000
-    .byte #%00111000
-    .byte #%00111000
-    .byte #%11100111
-    .byte #%11100111
-    .byte #%11100111
-    .byte #%11100111
-    .byte #%11100111
-    .byte #%11100111
-    .byte #%11100111
-    .byte #%11100111
-    .byte #%10110000
-    .byte #%10110000
-    .byte #%10110000
-    .byte #%10110000
-    .byte #%10110000
-    .byte #%10110000
-    .byte #%10110000
-    .byte #%10110000
+    .byte #%00000011
+    .byte #%00000011
+    .byte #%00000011
+    .byte #%00000011
+    .byte #%00000011
+    .byte #%00000011
+    .byte #%00000011
+    .byte #%00000011
+    .byte #%00011100
+    .byte #%00011100
+    .byte #%00011100
+    .byte #%00011100
+    .byte #%00011100
+    .byte #%00011100
+    .byte #%00011100
+    .byte #%00011100
+    .byte #%11100000
+    .byte #%11100000
+    .byte #%11100000
+    .byte #%11100000
+    .byte #%11100000
+    .byte #%11100000
+    .byte #%11100000
+    .byte #%11100000
+    .byte #%00011100
+    .byte #%00011100
+    .byte #%00011100
+    .byte #%00011100
+    .byte #%00011100
+    .byte #%00011100
+    .byte #%00011100
+    .byte #%00011100
+    .byte #%11110011
+    .byte #%11110011
+    .byte #%11110011
+    .byte #%11110011
+    .byte #%11110011
+    .byte #%11110011
+    .byte #%11110011
+    .byte #%11110011
     .byte #%01010000
     .byte #%01010000
     .byte #%01010000
@@ -2676,14 +2617,14 @@ AltPF2SpriteA
     .byte #%01010000
     .byte #%01010000
     .byte #%01010000
-    .byte #%00001000
-    .byte #%00001000
-    .byte #%00001000
-    .byte #%00001000
-    .byte #%00001000
-    .byte #%00001000
-    .byte #%00001000
-    .byte #%00001000
+    .byte #%01001000
+    .byte #%01001000
+    .byte #%01001000
+    .byte #%01001000
+    .byte #%01001000
+    .byte #%01001000
+    .byte #%01001000
+    .byte #%01001000
     .byte #%00000100
     .byte #%00000100
     .byte #%00000100
@@ -2692,38 +2633,46 @@ AltPF2SpriteA
     .byte #%00000100
     .byte #%00000100
     .byte #%00000100
-    .byte #%00100100
-    .byte #%00100100
-    .byte #%00100100
-    .byte #%00100100
-    .byte #%00100100
-    .byte #%00100100
-    .byte #%00100100
-    .byte #%00100100
-    .byte #%01100100
-    .byte #%01100100
-    .byte #%01100100
-    .byte #%01100100
-    .byte #%01100100
-    .byte #%01100100
-    .byte #%01100100
-    .byte #%01100100
-    .byte #%00001000
-    .byte #%00001000
-    .byte #%00001000
-    .byte #%00001000
-    .byte #%00001000
-    .byte #%00001000
-    .byte #%00001000
-    .byte #%00001000
-    .byte #%11110000
-    .byte #%11110000
-    .byte #%11110000
-    .byte #%11110000
-    .byte #%11110000
-    .byte #%11110000
-    .byte #%11110000
-    .byte #%11110000
+    .byte #%10000010
+    .byte #%10000010
+    .byte #%10000010
+    .byte #%10000010
+    .byte #%10000010
+    .byte #%10000010
+    .byte #%10000010
+    .byte #%10000010
+    .byte #%00010010
+    .byte #%00010010
+    .byte #%00010010
+    .byte #%00010010
+    .byte #%00010010
+    .byte #%00010010
+    .byte #%00010010
+    .byte #%00010010
+    .byte #%00110010
+    .byte #%00110010
+    .byte #%00110010
+    .byte #%00110010
+    .byte #%00110010
+    .byte #%00110010
+    .byte #%00110010
+    .byte #%00110010
+    .byte #%00000100
+    .byte #%00000100
+    .byte #%00000100
+    .byte #%00000100
+    .byte #%00000100
+    .byte #%00000100
+    .byte #%00000100
+    .byte #%00000100
+    .byte #%11111000
+    .byte #%11111000
+    .byte #%11111000
+    .byte #%11111000
+    .byte #%11111000
+    .byte #%11111000
+    .byte #%11111000
+    .byte #%11111000
     .byte #%00000000
     .byte #%00000000
     .byte #%00000000
@@ -2789,14 +2738,14 @@ AltPF2SpriteB
     .byte #%00000000
     .byte #%00000000
     .byte #%00000000
-    .byte #%00000000
-    .byte #%00000000
-    .byte #%00000000
-    .byte #%00000000
-    .byte #%00000000
-    .byte #%00000000
-    .byte #%00000000
-    .byte #%00000000
+    .byte #%00001000
+    .byte #%00001000
+    .byte #%00001000
+    .byte #%00001000
+    .byte #%00001000
+    .byte #%00001000
+    .byte #%00001000
+    .byte #%00001000
     .byte #%00000111
     .byte #%00000111
     .byte #%00000111
@@ -2805,6 +2754,14 @@ AltPF2SpriteB
     .byte #%00000111
     .byte #%00000111
     .byte #%00000111
+    .byte #%00001000
+    .byte #%00001000
+    .byte #%00001000
+    .byte #%00001000
+    .byte #%00001000
+    .byte #%00001000
+    .byte #%00001000
+    .byte #%00001000
     .byte #%00000000
     .byte #%00000000
     .byte #%00000000
@@ -2845,22 +2802,14 @@ AltPF2SpriteB
     .byte #%00000000
     .byte #%00000000
     .byte #%00000000
-    .byte #%00000000
-    .byte #%00000000
-    .byte #%00000000
-    .byte #%00000000
-    .byte #%00000000
-    .byte #%00000000
-    .byte #%00000000
-    .byte #%00000000
-    .byte #%00000000
-    .byte #%00000000
-    .byte #%00000000
-    .byte #%00000000
-    .byte #%00000000
-    .byte #%00000000
-    .byte #%00000000
-    .byte #%00000000
+    .byte #%00001000
+    .byte #%00001000
+    .byte #%00001000
+    .byte #%00001000
+    .byte #%00001000
+    .byte #%00001000
+    .byte #%00001000
+    .byte #%00001000
     .byte #%00000111
     .byte #%00000111
     .byte #%00000111
@@ -2869,14 +2818,14 @@ AltPF2SpriteB
     .byte #%00000111
     .byte #%00000111
     .byte #%00000111
-    .byte #%00000000
-    .byte #%00000000
-    .byte #%00000000
-    .byte #%00000000
-    .byte #%00000000
-    .byte #%00000000
-    .byte #%00000000
-    .byte #%00000000
+    .byte #%00000100
+    .byte #%00000100
+    .byte #%00000100
+    .byte #%00000100
+    .byte #%00000100
+    .byte #%00000100
+    .byte #%00000100
+    .byte #%00000100
     .byte #%00000000
     .byte #%00000000
     .byte #%00000000
