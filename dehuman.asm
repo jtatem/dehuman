@@ -141,7 +141,7 @@ MainLoop
 	STA Player0ColInner
 	LDA GrayCycle+3,X
 	STA Player1ColInner
-	LDA #20
+	LDA #7
 	STA ColorChangeCounter
 	DEC ColorChangePointer
 	BNE EndColorChangeBlock
@@ -307,25 +307,28 @@ NoLowerBoundMaxReset
 	JSR randomize
 	STA RandSpriteA
 	JSR randomize
-	LSR A
-	LSR A
+	LSR
+	LSR
+	LSR
 	STA RandSpriteB
 	JSR randomize
-	LSR A
-	LSR A
-	LSR A
+	LSR
+	LSR
+	LSR
 	STA RandSpriteC
 	JSR randomize
 	STA RandSpriteD
 	JSR randomize
-	ROL A
-	ROL A
+	ROL
+	ROL
+	ROL
+	ROL
 	STA RandSpriteE
 	JSR randomize
-	ROL A
-	ROL A
-	ROL A
-	ROL A
+	ROL
+	ROL
+	ROL
+	ROL
 	STA RandSpriteF
 
 	
