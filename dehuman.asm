@@ -13,19 +13,26 @@ RangeUpperBoundSpeed = $94
 RangeLowerBoundSpeed = $95
 MasterScanlineCounter = $96
 
-RangeUpperMax = $A0
-RangeLowerMin = $A1
-RangeSizeMin = $A2
-RangeSizeMax = $A3
 
 RangeASize = $97
 RangeBSize = $98
 RangeCSize = $99
 
+RangeUpperMax = $A0
+RangeLowerMin = $A1
+RangeSizeMin = $A2
+RangeSizeMax = $A3
+
 BgColOuter = $A4
 FgColOuter = $A5
 BgColInner = $A6
 FgColInner = $A7
+
+SpeedChangeCounter = $A8
+SpeedChangePointer = $A9
+Player0Speed = $AA
+Player1Speed = $AB
+
 ColorChangeCounter = $B0
 ColorChangePointer = $B1
 Player0ColOuter = $B2
@@ -33,13 +40,12 @@ Player1ColOuter = $B3
 Player0ColInner = $B4
 Player1ColInner = $B5
 
-
-
-SpeedChangeCounter = $A8
-SpeedChangePointer = $A9
-Player0Speed = $AA
-Player1Speed = $AB
-
+RandSpriteA = $B6
+RandSpriteB = $B7
+RandSpriteC = $B8
+RandSpriteD = $B9
+RandSpriteE = $BA
+RandSpriteF = $BB
 
 
 
@@ -91,10 +97,13 @@ ClearMem
 	LDA #1
 	STA RangeLowerBoundSpeed
 	
+	; Initialize random seeds
+	
 	LDA #77
 	STA rand1
 	LDA #202
 	STA rand2
+
 
     
 ; Let's draw a frame    
@@ -132,7 +141,7 @@ MainLoop
 	STA Player0ColInner
 	LDA GrayCycle+3,X
 	STA Player1ColInner
-	LDA #7
+	LDA #20
 	STA ColorChangeCounter
 	DEC ColorChangePointer
 	BNE EndColorChangeBlock
@@ -292,7 +301,34 @@ NoLowerBoundMaxReset
 	STA HMP0
 	LDA Player1Speed
 	STA HMP1
+	
+	; Set some randoms we'll use per frame
+	
+	JSR randomize
+	STA RandSpriteA
+	JSR randomize
+	LSR A
+	LSR A
+	STA RandSpriteB
+	JSR randomize
+	LSR A
+	LSR A
+	LSR A
+	STA RandSpriteC
+	JSR randomize
+	STA RandSpriteD
+	JSR randomize
+	ROL A
+	ROL A
+	STA RandSpriteE
+	JSR randomize
+	ROL A
+	ROL A
+	ROL A
+	ROL A
+	STA RandSpriteF
 
+	
 ; END SAFE ZONE FOR PRE-VISIBLE FRAME STUFF
 
 WaitForVblankEnd
@@ -354,31 +390,31 @@ ScanLoopB
 ScanLoopBWsyncBypass
 
     LDA AltPF0SpriteA-1,X
+	ORA RandSpriteA
     STA PF0 
         
     LDA AltPF1SpriteA-1,X
+	ORA RandSpriteB
     STA PF1
 	
     
     LDA AltPF2SpriteA-1,X
+	ORA RandSpriteC
     STA PF2 
-   
-    NOP
-	
+   	
  
     LDA AltPF0SpriteB-1,X
+	ORA RandSpriteD
     STA PF0 
     
     LDA AltPF1SpriteB-1,X
+	ORA RandSpriteE
     STA PF1
 	
-	NOP
-	NOP
     
     LDA AltPF2SpriteB-1,X
+	ORA RandSpriteF
     STA PF2
-	
-
     
     
 EndLineB 
