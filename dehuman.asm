@@ -47,6 +47,10 @@ RandSpriteD = $B9
 RandSpriteE = $BA
 RandSpriteF = $BB
 
+NoteDelayCounter = $C1
+DrumDelayCounter = $C2
+
+RandomValHolder1 = $C3
 
 
 
@@ -72,6 +76,21 @@ ClearMem
 	STA SpeedChangeCounter
 	LDA #191
 	STA MasterScanlineCounter
+	
+	; init music counters
+	
+	LDA #96
+	STA DrumDelayCounter
+	LDA #2
+	STA NoteDelayCounter
+
+	LDA #5
+	STA AUDV1
+		
+	LDA #210
+	STA rand1
+	LDA #69
+	STA rand2
 	
 ; Setup sliding range initial values
 
@@ -178,42 +197,57 @@ RangeUpperBoundAdd
 	LDA RangeUpperBound
 	ADC RangeUpperBoundSpeed
 	STA RangeUpperBound
-	JMP RangeUpperBoundSpeedEnd
+	JMP RangeUpperBoundDeltaEnd
 RangeUpperBoundSub
 	LDA RangeUpperBound
 	SBC RangeUpperBoundSpeed
 	STA RangeUpperBound
-RangeUpperBoundSpeedEnd
+RangeUpperBoundDeltaEnd
 	CMP RangeUpperMax
-	BCC NoUpperBoundMaxReset
+	BCC CheckRangeUpperBoundMin
 	LDA RangeUpperMax
 	STA RangeUpperBound
 	LDA #0
 	STA RangeUpperBoundDir
-	LDA RangeUpperBoundSpeed
-	CMP #1
-	BEQ IncreaseUpperBoundSpeed
-	LDA #1
-	STA RangeUpperBoundSpeed
-	JMP NoUpperBoundMaxReset
-NoUpperBoundMaxReset
+	JMP RangeUpperBoundSpeedRandom
+CheckRangeUpperBoundMin
 	LDA RangeLowerBound
 	ADC RangeSizeMin
 	CMP RangeUpperBound
-	BCC NoUpperBoundMinReset
+	BCC DoneUpperBound
 	STA RangeUpperBound
 	LDA #1
 	STA RangeUpperBoundDir
-	LDA RangeUpperBoundSpeed
-	CMP #1
-	BEQ IncreaseUpperBoundSpeed
+RangeUpperBoundSpeedRandom
+	JSR randomize
+	CMP #200
+	BCS UpperBoundSpeed5
+	CMP #150
+	BCS UpperBoundSpeed4
+	CMP #100
+	BCS UpperBoundSpeed3
+	CMP #50
+	BCS UpperBoundSpeed2
+UpperBoundSpeed1
 	LDA #1
 	STA RangeUpperBoundSpeed
-	JMP NoUpperBoundMinReset
-IncreaseUpperBoundSpeed
+	JMP DoneUpperBound
+UpperBoundSpeed2
+	LDA #2
+	STA RangeUpperBoundSpeed
+	JMP DoneUpperBound
+UpperBoundSpeed3
 	LDA #3
 	STA RangeUpperBoundSpeed
-NoUpperBoundMinReset
+	JMP DoneUpperBound
+UpperBoundSpeed4
+	LDA #4
+	STA RangeUpperBoundSpeed
+	JMP DoneUpperBound
+UpperBoundSpeed5
+	LDA #5
+	STA RangeUpperBoundSpeed
+DoneUpperBound
 
 
 	LDA RangeLowerBoundDir
@@ -225,41 +259,57 @@ RangeLowerBoundAdd
 	LDA RangeLowerBound
 	ADC RangeLowerBoundSpeed
 	STA RangeLowerBound
-	JMP RangeLowerBoundSpeedEnd
+	JMP RangeLowerBoundDeltaEnd
 RangeLowerBoundSub
 	LDA RangeLowerBound
 	SBC RangeLowerBoundSpeed
 	STA RangeLowerBound
-RangeLowerBoundSpeedEnd
+RangeLowerBoundDeltaEnd
 	CMP RangeLowerMin
-	BCS NoLowerBoundMinReset
+	BCS CheckRangeLowerBoundMin
 	LDA RangeLowerMin
 	STA RangeLowerBound
 	LDA #1
 	STA RangeLowerBoundDir
-	LDA RangeLowerBoundSpeed
-	CMP #1
-	BEQ IncreaseLowerBoundSpeed
-	LDA #1
-	STA RangeLowerBoundSpeed
-NoLowerBoundMinReset
+	JMP RangeLowerBoundSpeedRandom
+CheckRangeLowerBoundMin
 	LDA RangeUpperBound
 	SBC RangeSizeMin
 	CMP RangeLowerBound
-	BCS NoLowerBoundMaxReset
+	BCS DoneLowerBound
 	STA RangeLowerBound
 	LDA #0
 	STA RangeLowerBoundDir
-	LDA RangeLowerBoundSpeed
-	CMP #1
-	BEQ IncreaseLowerBoundSpeed
-	LDA #1
-	STA RangeLowerBoundSpeed
-	JMP NoLowerBoundMaxReset
-IncreaseLowerBoundSpeed
+RangeLowerBoundSpeedRandom
+	JSR randomize
+	CMP #200
+	BCS LowerBoundSpeed5
+	CMP #150
+	BCS LowerBoundSpeed4
+	CMP #100
+	BCS LowerBoundSpeed3
+	CMP #50
+	BCS LowerBoundSpeed2
+LowerBoundSpeed1
 	LDA #2
 	STA RangeLowerBoundSpeed
-NoLowerBoundMaxReset
+	JMP DoneLowerBound
+LowerBoundSpeed2
+	LDA #4
+	STA RangeLowerBoundSpeed
+	JMP DoneLowerBound
+LowerBoundSpeed3
+	LDA #6
+	STA RangeLowerBoundSpeed
+	JMP DoneLowerBound
+LowerBoundSpeed4
+	LDA #8
+	STA RangeLowerBoundSpeed
+	JMP DoneLowerBound
+LowerBoundSpeed5
+	LDA #10
+	STA RangeLowerBoundSpeed
+DoneLowerBound
 
 
 	; Compute ranges
@@ -307,28 +357,14 @@ NoLowerBoundMaxReset
 	JSR randomize
 	STA RandSpriteA
 	JSR randomize
-	LSR
-	LSR
-	LSR
 	STA RandSpriteB
 	JSR randomize
-	LSR
-	LSR
-	LSR
 	STA RandSpriteC
 	JSR randomize
 	STA RandSpriteD
 	JSR randomize
-	ROL
-	ROL
-	ROL
-	ROL
 	STA RandSpriteE
 	JSR randomize
-	ROL
-	ROL
-	ROL
-	ROL
 	STA RandSpriteF
 
 	
@@ -359,19 +395,27 @@ ScanLoopA
     LDA PF0SpriteB-1,X
     STA PF0 
     
+	NOP
+	
     LDA PF1SpriteB-1,X
     STA PF1
 	
-	NOP
 	NOP
 	NOP
     
     LDA PF2SpriteB-1,X
     STA PF2
 	
+	LDA INPT4
+	BMI EndLineA
+	NOP
+	NOP
+	NOP
+	NOP
+	NOP
+	NOP
     
-    
-EndLineA 
+EndLineA
 
 	DEX
     DEY
@@ -485,6 +529,130 @@ EndLineC
 	
 	LDA #33 ; 2,112 CPU cycles, what will we ever do with the time???
 	STA TIM64T	
+	
+	; Music shit
+	
+	JSR randomize
+	STA RandomValHolder1
+
+	LDA INPT4
+	BPL PlayKickDrum
+	LDA INPT5
+	BPL PlaySnareDrum
+	LDA #%00100000
+	BIT SWCHA
+	BEQ LowerBoundFucker
+	LDA #%00010000
+	BIT SWCHA
+	BEQ UpperBoundFucker
+	LDY DrumDelayCounter
+	CPY #94
+	BCS PlayKickDrum
+	CPY #84
+	BCS PlayDefaultSound
+	CPY #82
+	BCS PlaySnareDrum
+	CPY #72
+	BCS PlayDefaultSound
+	CPY #69
+	BCS PlayKickDrum
+	CPY #60
+	BCS PlayDefaultSound
+	CPY #57
+	BCS PlayKickDrum
+	CPY #48
+	BCS PlayDefaultSound
+	CPY #46
+	BCS PlaySnareDrum
+	CPY #36
+	BCS PlayDefaultSound
+	CPY #33
+	BCS PlayKickDrum
+	CPY #24
+	BCS PlayDefaultSound
+	CPY #21
+	BCS PlayKickDrum
+	CPY #12
+	BCS PlayDefaultSound
+	CPY #10
+	BCS PlaySnareDrum
+	CPY #0
+	BCS PlayDefaultSound
+	JMP PlayDefaultSound
+LowerBoundFucker
+	LDA RangeLowerBound
+	SBC #10
+	STA RangeLowerBound
+	JMP EndChan0
+UpperBoundFucker
+	LDA RangeUpperBound
+	ADC #5
+	STA RangeUpperBound
+	JMP PlaySnareDrum		
+PlayKickDrum
+	LDA #15
+	STA AUDC0
+	LDA #30
+	STA AUDF0
+	LDA #15
+	STA AUDV0
+	JMP EndChan0
+PlaySnareDrum
+	LDA #15
+	STA AUDC0
+	LDA #4
+	STA AUDF0
+	LDA #15
+	STA AUDV0
+	JMP EndChan0
+PlayHatDrum
+	LDA #8
+	STA AUDC0
+	LDA #0
+	STA AUDF0
+	LDA #5
+	STA AUDV0
+	JMP EndChan0
+PlayDefaultSound
+	LDA #3
+	STA AUDV0
+	LDA #15
+	STA AUDC0
+	LDA RandomValHolder1
+	ROL
+	ROL
+	ROL
+	STA AUDF0
+EndChan0
+	DEC DrumDelayCounter
+	BNE NoResetDrumDelayCounter
+	LDA #96
+	STA DrumDelayCounter
+NoResetDrumDelayCounter
+
+	DEC NoteDelayCounter
+	BEQ ChangeNote
+	JMP DontChangeNote
+ChangeNote
+	LDA RangeUpperBound
+	;ROL
+	;ROL
+	;ROL
+	STA AUDF1
+	LDA #6
+	STA AUDC1
+	LDA #3
+	STA NoteDelayCounter
+	JMP DoneAudio
+DontChangeNote
+	LDA RangeLowerBound
+	ROL
+	ROL
+	STA AUDF1
+    LDA #6
+	STA AUDC1
+
+DoneAudio
 
 ; OVERSCAN END
 OverScanWait
@@ -585,11 +753,6 @@ RedColors
 	.byte #$20
 	.byte #$30
 	.byte #$22
-	.byte #$32
-	.byte #$34
-	.byte #$32
-	.byte #$22
-	.byte #$30
 	
 GrayCycle
 	.byte #$00
@@ -603,11 +766,6 @@ GrayCycle
 	.byte #$00
 	.byte #$04
 	.byte #$08
-	.byte #$0A
-	.byte #$0E
-	.byte #$0A
-	.byte #$08
-	.byte #$04
 	
 PF0SpriteA
     .byte #%00000000
