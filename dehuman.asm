@@ -47,10 +47,27 @@ RandSpriteD = $B9
 RandSpriteE = $BA
 RandSpriteF = $BB
 
+FrameCounter = $BC
+
 NoteDelayCounter = $C1
-DrumDelayCounter = $C2
+NoteState = $C2
 
 RandomValHolder1 = $C3
+
+BeatDelayCounter = $C4
+BeatPosCounter = $C5
+ActiveBeatData = $C6
+BeatDataALen = $C7
+BeatDataBLen = $C8
+BeatDataCLen = $C9
+
+LeftFreqDiv = $CA
+RightFreqDiv = $CB
+LeftFreqChangeTimer = $CC
+RightFreqChangeTimer = $CD
+
+NoteInstrumentPointer = $CE
+NoteInstrumentValue = $CF
 
 
 
@@ -76,16 +93,41 @@ ClearMem
 	STA SpeedChangeCounter
 	LDA #191
 	STA MasterScanlineCounter
+	LDA #0
+	STA FrameCounter
 	
 	; init music counters
 	
-	LDA #96
-	STA DrumDelayCounter
-	LDA #2
+	LDA #70
+	STA BeatDataALen
+	LDA #50
+	STA BeatDataBLen
+	LDA #21
+	STA BeatDataCLen
+	LDA #1
+	STA ActiveBeatData
+	
+	LDA #1
+	STA BeatDelayCounter
+	LDA BeatDataALen
+	STA BeatPosCounter
+	
+	LDA #1
 	STA NoteDelayCounter
-
-	LDA #5
-	STA AUDV1
+	LDA #0
+	STA NoteState
+	LDA #1
+	STA NoteInstrumentPointer
+	LDA #1
+	STA NoteInstrumentValue
+	
+	LDA #0
+	STA LeftFreqDiv
+	STA RightFreqDiv
+	LDA #2
+	STA LeftFreqChangeTimer
+	STA RightFreqChangeTimer
+	
 		
 	LDA #210
 	STA rand1
@@ -340,9 +382,9 @@ DoneLowerBound
 	LDA Player1ColOuter
 	STA COLUP1
 	
-	JSR randomize
+	LDA RangeUpperBound
 	STA GRP0
-	JSR randomize
+	LDA FrameCounter
 	STA GRP1
 	
 	; Set player speeds
@@ -366,6 +408,7 @@ DoneLowerBound
 	STA RandSpriteE
 	JSR randomize
 	STA RandSpriteF
+
 
 	
 ; END SAFE ZONE FOR PRE-VISIBLE FRAME STUFF
@@ -414,6 +457,7 @@ ScanLoopA
 	NOP
 	NOP
 	NOP
+
     
 EndLineA
 
@@ -512,7 +556,6 @@ ScanLoopCWsyncBypass
     LDA PF2SpriteB-1,X
     STA PF2
 	
-	
     
     
 EndLineC
@@ -531,64 +574,127 @@ EndLineC
 	STA TIM64T	
 	
 	; Music shit
-	
+
 	JSR randomize
 	STA RandomValHolder1
-
-	LDA INPT4
-	BPL PlayKickDrum
-	LDA INPT5
-	BPL PlaySnareDrum
-	LDA #%00100000
+	
+StartBeatSwitcher
+	LDA #%00100000 ; P1 Down
 	BIT SWCHA
-	BEQ LowerBoundFucker
-	LDA #%00010000
+	BEQ ChangeBeatDown
+	JMP StartBeatChannel
+ChangeBeatDown
+	LDA ActiveBeatData
+	ADC #1
+	CMP #4
+	BCC DoneSelectBeat
+	LDA #1
+	JMP DoneSelectBeat
+DoneSelectBeat
+	STA ActiveBeatData
+	CMP #1
+	BEQ SetActiveBeatA
+	CMP #2
+	BEQ SetActiveBeatB
+	CMP #3
+	BEQ SetActiveBeatC
+SetActiveBeatA
+	LDA BeatDataALen
+	STA BeatPosCounter
+	JMP DoneSetBeat
+SetActiveBeatB
+	LDA BeatDataBLen
+	STA BeatPosCounter
+	JMP DoneSetBeat
+SetActiveBeatC
+	LDA BeatDataCLen
+	STA BeatPosCounter
+DoneSetBeat
+	LDA #1
+	STA BeatDelayCounter
+	
+StartBeatChannel
+	DEC BeatDelayCounter
+	BNE BeatPlayNothingRelay
+	LDA #%00000100 ; P2 Left
 	BIT SWCHA
-	BEQ UpperBoundFucker
-	LDY DrumDelayCounter
-	CPY #94
-	BCS PlayKickDrum
-	CPY #84
-	BCS PlayDefaultSound
-	CPY #82
-	BCS PlaySnareDrum
-	CPY #72
-	BCS PlayDefaultSound
-	CPY #69
-	BCS PlayKickDrum
-	CPY #60
-	BCS PlayDefaultSound
-	CPY #57
-	BCS PlayKickDrum
-	CPY #48
-	BCS PlayDefaultSound
-	CPY #46
-	BCS PlaySnareDrum
-	CPY #36
-	BCS PlayDefaultSound
-	CPY #33
-	BCS PlayKickDrum
-	CPY #24
-	BCS PlayDefaultSound
-	CPY #21
-	BCS PlayKickDrum
-	CPY #12
-	BCS PlayDefaultSound
-	CPY #10
-	BCS PlaySnareDrum
-	CPY #0
-	BCS PlayDefaultSound
-	JMP PlayDefaultSound
-LowerBoundFucker
-	LDA RangeLowerBound
-	SBC #10
-	STA RangeLowerBound
-	JMP EndChan0
-UpperBoundFucker
-	LDA RangeUpperBound
-	ADC #5
-	STA RangeUpperBound
-	JMP PlaySnareDrum		
+	BEQ PlayKickRelay
+	LDA #%00001000 ; P2 Right
+	BIT SWCHA
+	BEQ PlaySnareRelay
+	LDA #%00000010 ; P2 Down
+	BIT SWCHA
+	BEQ PlayHatClosedRelay
+	LDA #%00000001 ; P2 Up
+	BIT SWCHA
+	BEQ PlayHatOpenRelay
+	DEC BeatPosCounter
+	BNE NoResetBeatPosCounter
+	LDA ActiveBeatData
+	CMP #1
+	BEQ UseBeatChannelALen
+	CMP #2
+	BEQ UseBeatChannelBLen
+	CMP #3
+	BEQ UseBeatChannelCLen
+UseBeatChannelALen
+	LDA BeatDataALen
+	STA BeatPosCounter
+	JMP NoResetBeatPosCounter
+UseBeatChannelBLen
+	LDA BeatDataBLen
+	STA BeatPosCounter
+	JMP NoResetBeatPosCounter
+UseBeatChannelCLen
+	LDA BeatDataCLen
+	STA BeatPosCounter
+NoResetBeatPosCounter
+	LDY BeatPosCounter
+	LDA ActiveBeatData
+	CMP #1
+	BEQ UseBeatChannelA
+	CMP #2
+	BEQ UseBeatChannelB
+	CMP #3
+	BEQ UseBeatChannelC
+UseBeatChannelA
+	LDA BeatControlDataA-1,Y
+	JMP ChooseBeatInstrument
+UseBeatChannelB
+	LDA BeatControlDataB-1,Y
+	JMP ChooseBeatInstrument
+UseBeatChannelC
+	LDA BeatControlDataC-1,Y
+	JMP ChooseBeatInstrument
+PlayKickRelay
+	LDA #1
+	JMP ChooseBeatInstrument
+PlaySnareRelay
+	LDA #2
+	JMP ChooseBeatInstrument
+PlayHatClosedRelay
+	LDA #3
+	JMP ChooseBeatInstrument
+PlayHatOpenRelay
+	LDA #4
+	JMP ChooseBeatInstrument
+BeatPlayNothingRelay
+	JMP BeatPlayNothing
+ChooseBeatInstrument
+	CMP #0
+	BEQ BeatChannelSilence
+	CMP #1
+	BEQ PlayKickDrum
+	CMP #2
+	BEQ PlaySnareDrum
+	CMP #3
+	BEQ PlayHatClosed
+	CMP #4
+	BEQ PlayHatOpen
+	CMP #100
+	BCS BeatChannelSilenceMulti
+BeatPlayNothing
+	JMP DoneBeatChannel
 PlayKickDrum
 	LDA #15
 	STA AUDC0
@@ -596,63 +702,205 @@ PlayKickDrum
 	STA AUDF0
 	LDA #15
 	STA AUDV0
-	JMP EndChan0
+	LDA #3
+	STA BeatDelayCounter
+	JMP DoneBeatChannel
 PlaySnareDrum
 	LDA #15
 	STA AUDC0
-	LDA #4
+	LDA #6
 	STA AUDF0
-	LDA #15
+	LDA #8
 	STA AUDV0
-	JMP EndChan0
-PlayHatDrum
+	LDA #2
+	STA BeatDelayCounter
+	JMP DoneBeatChannel
+PlayHatClosed
 	LDA #8
 	STA AUDC0
 	LDA #0
 	STA AUDF0
-	LDA #5
+	LDA #6
 	STA AUDV0
-	JMP EndChan0
-PlayDefaultSound
-	LDA #3
-	STA AUDV0
-	LDA #15
+	LDA #1
+	STA BeatDelayCounter
+	JMP DoneBeatChannel
+PlayHatOpen
+	LDA #8
 	STA AUDC0
-	LDA RandomValHolder1
-	ROL
-	ROL
-	ROL
+	LDA #1
 	STA AUDF0
-EndChan0
-	DEC DrumDelayCounter
-	BNE NoResetDrumDelayCounter
-	LDA #96
-	STA DrumDelayCounter
-NoResetDrumDelayCounter
+	LDA #6
+	STA AUDV0
+	LDA #3
+	STA BeatDelayCounter
+	JMP DoneBeatChannel
+BeatChannelSilenceMulti
+	SBC #100
+	STA BeatDelayCounter
+BeatChannelSilence
+	LDA #0
+	STA AUDV0
+DoneBeatChannel
 
-	DEC NoteDelayCounter
-	BEQ ChangeNote
-	JMP DontChangeNote
-ChangeNote
-	LDA RangeUpperBound
-	;ROL
-	;ROL
-	;ROL
+	LDA #%00010000 ; P1 Up
+	BIT SWCHA
+	BNE DoneChangeInstrument
+ChangeInstrument
+	LDA NoteInstrumentPointer
+	ADC #1
+	CMP #8
+	BCS ResetInstrumentPointer
+	STA NoteInstrumentPointer
+	CMP #1
+	BEQ UseSaw
+	CMP #2
+	BEQ UseEngine
+	CMP #3
+	BEQ UseSquare
+	CMP #4
+	BEQ UseBass
+	CMP #5
+	BEQ UseLogBuzz
+	CMP #6
+	BEQ UseNoise
+	CMP #7
+	BEQ UseLead
+	CMP #8
+	BEQ UseBuzz
+ResetInstrumentPointer
+	LDA #0
+	STA NoteInstrumentPointer
+UseSaw
+	LDA #1
+	STA NoteInstrumentValue
+	JMP DoneChangeInstrument
+UseEngine
+	LDA #3
+	STA NoteInstrumentValue
+	JMP DoneChangeInstrument
+UseSquare
+	LDA #4
+	STA NoteInstrumentValue
+	JMP DoneChangeInstrument
+UseBass
+	LDA #6
+	STA NoteInstrumentValue
+	JMP DoneChangeInstrument
+UseLogBuzz
+	LDA #7
+	STA NoteInstrumentValue
+	JMP DoneChangeInstrument
+UseNoise
+	LDA #8
+	STA NoteInstrumentValue
+	JMP DoneChangeInstrument
+UseLead
+	LDA #12
+	STA NoteInstrumentValue
+	JMP DoneChangeInstrument
+UseBuzz
+	LDA #15
+	STA NoteInstrumentValue
+DoneChangeInstrument
+	
+	LDA #%01000000 ; P1 Left
+	BIT SWCHA
+	BEQ LeftActive
+	LDA #0
+	STA LeftFreqDiv
+	JMP DoneLeftEffect
+LeftActive
+	LDA NoteInstrumentValue
+	STA AUDC1
+	LDA #15
+	STA AUDV1
+	DEC LeftFreqChangeTimer
+	BNE SkipNote
+	LDA LeftFreqDiv
+	ADC #1
+	CMP #31
+	BCC LeftEffectUnderMax
+	LDA #31
+LeftEffectUnderMax
+	STA LeftFreqDiv
 	STA AUDF1
+	LDA #1
+	STA LeftFreqChangeTimer
+	JMP SkipNote
+DoneLeftEffect
+
+	LDA #%10000000 ; P1 Right
+	BIT SWCHA
+	BEQ RightActive
+	LDA #32
+	STA RightFreqDiv
+	JMP DoneRightEffect
+RightActive
+	LDA NoteInstrumentValue
+	STA AUDC1
+	LDA #15
+	STA AUDV1
+	DEC RightFreqChangeTimer
+	BNE DoneNoteChannel
+	LDA RightFreqDiv
+	SBC #1
+	CMP #10
+	BCS RightEffectOverMin
+	LDA #10
+RightEffectOverMin
+	STA RightFreqDiv
+	STA AUDF1
+	LDA #2
+	STA RightFreqChangeTimer
+	JMP DoneNoteChannel
+DoneRightEffect
+
+StartNoteChannel
+	DEC NoteDelayCounter
+	BNE NoChangeNote
+	LDA NoteState
+	CMP #0
+	BEQ Play0State
+	CMP #1
+	BEQ Play1State
+SkipNote
+	JMP NoChangeNote
+Play0State
+	LDA #3
+	STA AUDV1
+	LDA NoteInstrumentValue
+	STA AUDC1
+	LDA FrameCounter
+	LSR
+	STA AUDF1
+	LDA #1
+	STA NoteState
+	LDA #1
+	STA NoteDelayCounter
+	JMP DoneNoteChannel
+Play1State
+	LDA #8
+	STA AUDV1
 	LDA #6
 	STA AUDC1
-	LDA #3
-	STA NoteDelayCounter
-	JMP DoneAudio
-DontChangeNote
-	LDA RangeLowerBound
-	ROL
-	ROL
+	LDA FrameCounter
+	LSR
+	LSR
 	STA AUDF1
-    LDA #6
-	STA AUDC1
+	LDA #0
+	STA NoteState
+	LDA #4
+	STA NoteDelayCounter
+NoChangeNote
 
-DoneAudio
+DoneNoteChannel
+
+	LDA FrameCounter
+	SBC #1
+	STA FrameCounter
+
+	
 
 ; OVERSCAN END
 OverScanWait
@@ -676,6 +924,156 @@ noEor2:
 	sta rand1
 	eor rand2
 	rts
+	
+BeatControlDataA
+	.byte #4
+	.byte #101
+	.byte #2
+	.byte #103
+	.byte #1
+	.byte #102
+	.byte #3
+	.byte #102
+	.byte #3
+	.byte #102
+	.byte #3
+	.byte #101
+	.byte #2
+	.byte #103
+	.byte #1
+	.byte #102
+	.byte #3
+	.byte #102
+	.byte #3
+	.byte #4
+	.byte #101
+	.byte #2
+	.byte #103
+	.byte #1
+	.byte #102
+	.byte #3
+	.byte #102
+	.byte #3
+	.byte #102
+	.byte #3
+	.byte #101
+	.byte #2
+	.byte #109
+	.byte #1
+	.byte #4
+	.byte #101
+	.byte #2
+	.byte #103
+	.byte #1
+	.byte #102
+	.byte #3
+	.byte #102
+	.byte #3
+	.byte #102
+	.byte #3
+	.byte #101
+	.byte #2
+	.byte #103
+	.byte #1
+	.byte #102
+	.byte #3
+	.byte #102
+	.byte #3
+	.byte #4
+	.byte #101
+	.byte #2
+	.byte #103
+	.byte #1
+	.byte #102
+	.byte #3
+	.byte #102
+	.byte #3
+	.byte #102
+	.byte #3
+	.byte #101
+	.byte #2
+	.byte #103
+	.byte #1
+	.byte #103
+	.byte #1
+	
+BeatControlDataB
+	.byte #105
+	.byte #3
+	.byte #103
+	.byte #1
+	.byte #105
+	.byte #3
+	.byte #103
+	.byte #1
+	.byte #105
+	.byte #3
+	.byte #105
+	.byte #3
+	.byte #109
+	.byte #1
+	.byte #105
+	.byte #3
+	.byte #105
+	.byte #3
+	.byte #109
+	.byte #1
+	.byte #105
+	.byte #3
+	.byte #105
+	.byte #3
+	.byte #109
+	.byte #1
+	.byte #105
+	.byte #3
+	.byte #105
+	.byte #3
+	.byte #109
+	.byte #1
+	.byte #105
+	.byte #3
+	.byte #105
+	.byte #3
+	.byte #109
+	.byte #1
+	.byte #105
+	.byte #3
+	.byte #105
+	.byte #3
+	.byte #109
+	.byte #1
+	.byte #105
+	.byte #3
+	.byte #105
+	.byte #3
+	.byte #109
+	.byte #1
+
+	
+BeatControlDataC
+	.byte #103
+	.byte #4
+	.byte #103
+	.byte #4
+	.byte #109
+	.byte #1
+	.byte #109
+	.byte #4
+	.byte #1
+	.byte #106
+	.byte #1
+	.byte #109
+	.byte #4
+	.byte #109
+	.byte #1
+	.byte #109
+	.byte #4
+	.byte #103
+	.byte #1
+	.byte #103
+	.byte #1
+
+
 
 Player0SpeedRange
 	.byte #$00
