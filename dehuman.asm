@@ -11,8 +11,6 @@ RangeUpperBoundDir = $92
 RangeLowerBoundDir = $93
 RangeUpperBoundSpeed = $94
 RangeLowerBoundSpeed = $95
-MasterScanlineCounter = $96
-
 
 RangeASize = $97
 RangeBSize = $98
@@ -49,11 +47,6 @@ RandSpriteF = $BB
 
 FrameCounter = $BC
 
-NoteDelayCounter = $C1
-NoteState = $C2
-
-RandomValHolder1 = $C3
-
 BeatDelayCounter = $C4
 BeatPosCounter = $C5
 ActiveBeatData = $C6
@@ -66,8 +59,17 @@ RightFreqDiv = $CB
 LeftFreqChangeTimer = $CC
 RightFreqChangeTimer = $CD
 
-NoteInstrumentPointer = $CE
-NoteInstrumentValue = $CF
+Numerator = $D0
+Denominator = $D1
+
+NoteDelayCounter = $E0
+NotePosCounter = $E1
+ActiveNoteData = $E2
+NoteDataALen = $E3
+NoteDataBLen = $E4
+NoteDataCLen = $E5
+NoteInstrumentPointer = $E6
+NoteInstrumentValue = $E7
 
 
 
@@ -91,14 +93,12 @@ ClearMem
 	STA SpeedChangePointer
 	LDA #10
 	STA SpeedChangeCounter
-	LDA #191
-	STA MasterScanlineCounter
 	LDA #0
 	STA FrameCounter
 	
 	; init music counters
 	
-	LDA #70
+	LDA #34
 	STA BeatDataALen
 	LDA #50
 	STA BeatDataBLen
@@ -112,14 +112,19 @@ ClearMem
 	LDA BeatDataALen
 	STA BeatPosCounter
 	
+	LDA #18
+	STA NoteDataALen
+	LDA #58
+	STA NoteDataBLen
+	LDA #24
+	STA NoteDataCLen
+	LDA #1
+	STA ActiveNoteData
+	
 	LDA #1
 	STA NoteDelayCounter
-	LDA #0
-	STA NoteState
-	LDA #1
-	STA NoteInstrumentPointer
-	LDA #1
-	STA NoteInstrumentValue
+	LDA NoteDataALen
+	STA NotePosCounter
 	
 	LDA #0
 	STA LeftFreqDiv
@@ -127,6 +132,11 @@ ClearMem
 	LDA #2
 	STA LeftFreqChangeTimer
 	STA RightFreqChangeTimer
+	
+	LDA #4
+	STA NoteInstrumentPointer
+	LDA #6
+	STA NoteInstrumentValue
 	
 		
 	LDA #210
@@ -449,7 +459,7 @@ ScanLoopA
     LDA PF2SpriteB-1,X
     STA PF2
 	
-	LDA INPT4
+	LDA INPT5 ; P1 Fire
 	BMI EndLineA
 	NOP
 	NOP
@@ -575,9 +585,7 @@ EndLineC
 	
 	; Music shit
 
-	JSR randomize
-	STA RandomValHolder1
-	
+
 StartBeatSwitcher
 	LDA #%00100000 ; P1 Down
 	BIT SWCHA
@@ -743,9 +751,45 @@ BeatChannelSilence
 	STA AUDV0
 DoneBeatChannel
 
-	LDA #%00010000 ; P1 Up
+StartNoteSwitcher
+	LDA #%00010000 ; P1 Down
 	BIT SWCHA
-	BNE DoneChangeInstrument
+	BEQ ChangeNoteDown
+	JMP DoneNoteSwitcher
+ChangeNoteDown
+	LDA ActiveNoteData
+	ADC #1
+	CMP #4
+	BCC DoneSelectNote
+	LDA #1
+	JMP DoneSelectNote
+DoneSelectNote
+	STA ActiveNoteData
+	CMP #1
+	BEQ SetActiveNoteA
+	CMP #2
+	BEQ SetActiveNoteB
+	CMP #3
+	BEQ SetActiveNoteC
+SetActiveNoteA
+	LDA NoteDataALen
+	STA NotePosCounter
+	JMP DoneSetNote
+SetActiveNoteB
+	LDA NoteDataBLen
+	STA NotePosCounter
+	JMP DoneSetNote
+SetActiveNoteC
+	LDA NoteDataCLen
+	STA NotePosCounter
+DoneSetNote
+	LDA #1
+	STA NoteDelayCounter
+DoneNoteSwitcher
+
+
+	LDA INPT4 ; P1 Fire
+	BMI DoneChangeInstrument
 ChangeInstrument
 	LDA NoteInstrumentPointer
 	ADC #1
@@ -842,7 +886,7 @@ RightActive
 	LDA #15
 	STA AUDV1
 	DEC RightFreqChangeTimer
-	BNE DoneNoteChannel
+	BNE SkipNote
 	LDA RightFreqDiv
 	SBC #1
 	CMP #10
@@ -858,42 +902,64 @@ DoneRightEffect
 
 StartNoteChannel
 	DEC NoteDelayCounter
-	BNE NoChangeNote
-	LDA NoteState
-	CMP #0
-	BEQ Play0State
+	BNE DoneNoteChannel
+	DEC NotePosCounter
+	BNE NoResetNotePosCounter
+	LDA ActiveNoteData
 	CMP #1
-	BEQ Play1State
+	BEQ UseNoteChannelALen
+	CMP #2
+	BEQ UseNoteChannelBLen
+	CMP #3
+	BEQ UseNoteChannelCLen
 SkipNote
-	JMP NoChangeNote
-Play0State
-	LDA #3
+	JMP DoneNoteChannel
+UseNoteChannelALen
+	LDA NoteDataALen
+	STA NotePosCounter
+	JMP NoResetNotePosCounter
+UseNoteChannelBLen
+	LDA NoteDataBLen
+	STA NotePosCounter
+	JMP NoResetNotePosCounter
+UseNoteChannelCLen
+	LDA NoteDataCLen
+	STA NotePosCounter
+NoResetNotePosCounter
+	LDY NotePosCounter
+	LDA ActiveNoteData
+	CMP #1
+	BEQ UseNoteChannelA
+	CMP #2
+	BEQ UseNoteChannelB
+	CMP #3
+	BEQ UseNoteChannelC
+UseNoteChannelA
+	LDA NoteControlDataA-1,Y
+	JMP SetNoteChannel
+UseNoteChannelB
+	LDA NoteControlDataB-1,Y
+	JMP SetNoteChannel
+UseNoteChannelC
+	LDA NoteControlDataC-1,Y
+SetNoteChannel
+	STA Numerator
+	LDA #10
+	STA Denominator
+	JSR div10
+	STA NoteDelayCounter
+	LDA Numerator
+	CMP #24
+	BMI NoSilence
+	LDA #0
 	STA AUDV1
+	JMP DoneNoteChannel
+NoSilence
+	STA AUDF1
 	LDA NoteInstrumentValue
 	STA AUDC1
-	LDA FrameCounter
-	LSR
-	STA AUDF1
-	LDA #1
-	STA NoteState
-	LDA #1
-	STA NoteDelayCounter
-	JMP DoneNoteChannel
-Play1State
-	LDA #8
+	LDA #10
 	STA AUDV1
-	LDA #6
-	STA AUDC1
-	LDA FrameCounter
-	LSR
-	LSR
-	STA AUDF1
-	LDA #0
-	STA NoteState
-	LDA #4
-	STA NoteDelayCounter
-NoChangeNote
-
 DoneNoteChannel
 
 	LDA FrameCounter
@@ -910,93 +976,173 @@ OverScanWait
     JMP  MainLoop
 	
 randomize
-	lda rand1
-	asl
-	ror rand2
-	bcc noEor1
-	eor #$DB
+	LDA rand1
+	ASL
+	ROR rand2
+	BCC noEor1
+	EOR #$DB
 noEor1:
-	asl
-	ror rand2
-	bcc noEor2
-	eor #$DB
+	ASL
+	ROR rand2
+	BCC noEor2
+	EOR #$DB
 noEor2:
-	sta rand1
-	eor rand2
-	rts
+	STA rand1
+	EOR rand2
+	RTS
+	
+div10
+	LDA #0
+	LDX #8
+	ASL Numerator
+div10L1
+	ROL
+	CMP Denominator
+	BCC div10L2
+	SBC Denominator
+div10L2
+	ROL Numerator
+	DEX
+	BNE div10L1
+	RTS
+	
+	
+NoteControlDataA
+	.byte #83
+	.byte #113
+	.byte #143
+	.byte #173
+	.byte #243
+	.byte #209
+	.byte #243
+	.byte #209	
+	.byte #243
+	.byte #209
+	.byte #243
+	.byte #209
+	.byte #243
+	.byte #209
+	.byte #243
+	.byte #209	
+	.byte #243
+	.byte #209
+	
+NoteControlDataB
+	.byte #2
+	.byte #12
+	.byte #22
+	.byte #32
+	.byte #42
+	.byte #52
+	.byte #62
+	.byte #72
+	.byte #82
+	.byte #92
+	.byte #102
+	.byte #112
+	.byte #122
+	.byte #132
+	.byte #142
+	.byte #152
+	.byte #162
+	.byte #172
+	.byte #182
+	.byte #192
+	.byte #202
+	.byte #212
+	.byte #222
+	.byte #232
+	.byte #242
+	.byte #232
+	.byte #242
+	.byte #232
+	.byte #242
+	.byte #232
+	.byte #222
+	.byte #212
+	.byte #202
+	.byte #192
+	.byte #182
+	.byte #172
+	.byte #162
+	.byte #152
+	.byte #142
+	.byte #132
+	.byte #122
+	.byte #112
+	.byte #102
+	.byte #92
+	.byte #82
+	.byte #72
+	.byte #62
+	.byte #52
+	.byte #42
+	.byte #32
+	.byte #22
+	.byte #12
+	.byte #2
+	.byte #242
+	.byte #2
+	.byte #242
+	.byte #2
+	.byte #242
+	
+NoteControlDataC
+	.byte #246
+	.byte #246
+	.byte #236
+	.byte #236
+	.byte #246
+	.byte #246
+	.byte #236
+	.byte #248
+	.byte #248
+	.byte #248
+	.byte #236
+	.byte #236
+	.byte #221
+	.byte #211
+	.byte #201
+	.byte #191
+	.byte #181
+	.byte #171
 	
 BeatControlDataA
+	.byte #104
 	.byte #4
-	.byte #101
-	.byte #2
-	.byte #103
-	.byte #1
-	.byte #102
-	.byte #3
-	.byte #102
-	.byte #3
-	.byte #102
-	.byte #3
-	.byte #101
-	.byte #2
-	.byte #103
-	.byte #1
-	.byte #102
-	.byte #3
-	.byte #102
-	.byte #3
-	.byte #4
-	.byte #101
-	.byte #2
-	.byte #103
-	.byte #1
-	.byte #102
-	.byte #3
-	.byte #102
-	.byte #3
-	.byte #102
-	.byte #3
-	.byte #101
+	.byte #104
 	.byte #2
 	.byte #109
 	.byte #1
+	.byte #101
 	.byte #4
-	.byte #101
+	.byte #103
+	.byte #3
+	.byte #102
 	.byte #2
-	.byte #103
+	.byte #109
+	.byte #1
+	.byte #109
 	.byte #1
 	.byte #102
 	.byte #3
 	.byte #102
 	.byte #3
-	.byte #102
-	.byte #3
-	.byte #101
+	.byte #104
 	.byte #2
-	.byte #103
+	.byte #109
 	.byte #1
-	.byte #102
+	.byte #103
+	.byte #3
+	.byte #103
 	.byte #3
 	.byte #102
-	.byte #3
-	.byte #4
-	.byte #101
 	.byte #2
-	.byte #103
+	.byte #109
 	.byte #1
-	.byte #102
-	.byte #3
-	.byte #102
-	.byte #3
-	.byte #102
-	.byte #3
-	.byte #101
-	.byte #2
-	.byte #103
+	.byte #109
 	.byte #1
-	.byte #103
-	.byte #1
-	
+
 BeatControlDataB
 	.byte #105
 	.byte #3
