@@ -220,21 +220,16 @@ MainLoop
 	STA ColorChangePointer
 EndColorChangeBlock
 
-
 	DEC SpeedChangeCounter
 	BNE EndSpeedChangeBlock
-	LDX SpeedChangePointer
-	LDA Player0SpeedRange-1,X
+	LDA Player0Speed
+	ADC #2
 	STA Player0Speed
-	LDA Player1SpeedRange,X
+	LDA Player1Speed
+	SBC #6
 	STA Player1Speed
 	LDA #10
 	STA SpeedChangeCounter
-	DEC SpeedChangePointer
-	BNE EndSpeedChangeBlock
-	LDA #29
-	STA SpeedChangePointer
-
 EndSpeedChangeBlock
 
 
@@ -646,14 +641,13 @@ StartBeatChannel
 	BEQ UseBeatChannelCLen
 UseBeatChannelALen
 	LDA BeatDataALen
-	STA BeatPosCounter
-	JMP NoResetBeatPosCounter
+	JMP SetBeatDataLen
 UseBeatChannelBLen
 	LDA BeatDataBLen
-	STA BeatPosCounter
-	JMP NoResetBeatPosCounter
+	JMP SetBeatDataLen
 UseBeatChannelCLen
 	LDA BeatDataCLen
+SetBeatDataLen
 	STA BeatPosCounter
 NoResetBeatPosCounter
 	LDY BeatPosCounter
@@ -908,14 +902,13 @@ SkipNote
 	JMP DoneNoteChannel
 UseNoteChannelALen
 	LDA NoteDataALen
-	STA NotePosCounter
-	JMP NoResetNotePosCounter
+	JMP SetNoteChannelLen
 UseNoteChannelBLen
 	LDA NoteDataBLen
-	STA NotePosCounter
-	JMP NoResetNotePosCounter
+	JMP SetNoteChannelLen
 UseNoteChannelCLen
 	LDA NoteDataCLen
+SetNoteChannelLen
 	STA NotePosCounter
 NoResetNotePosCounter
 	LDY NotePosCounter
@@ -1002,70 +995,6 @@ div10L2
 {NoteData}
 
 {BeatData}
-
-Player0SpeedRange
-	.byte #$00
-	.byte #$10
-	.byte #$20
-	.byte #$30
-	.byte #$40
-	.byte #$50
-	.byte #$60
-	.byte #$70
-	.byte #$80
-	.byte #$90
-	.byte #$A0
-	.byte #$B0
-	.byte #$C0
-	.byte #$D0
-	.byte #$E0
-	.byte #$F0
-	.byte #$E0
-	.byte #$D0
-	.byte #$C0
-	.byte #$B0
-	.byte #$A0
-	.byte #$90
-	.byte #$80
-	.byte #$70
-	.byte #$60
-	.byte #$50
-	.byte #$40
-	.byte #$30
-	.byte #$20
-	.byte #$10
-
-Player1SpeedRange
-	.byte #$40
-	.byte #$50
-	.byte #$60
-	.byte #$70
-	.byte #$80
-	.byte #$90
-	.byte #$A0
-	.byte #$B0
-	.byte #$C0
-	.byte #$D0
-	.byte #$E0
-	.byte #$F0
-	.byte #$E0
-	.byte #$D0
-	.byte #$C0
-	.byte #$B0
-	.byte #$A0
-	.byte #$90
-	.byte #$80
-	.byte #$70
-	.byte #$60
-	.byte #$50
-	.byte #$40
-	.byte #$30
-	.byte #$20
-	.byte #$10
-	.byte #$00
-	.byte #$10
-	.byte #$20
-	.byte #$30
 
 RedColors
 	.byte #$20
