@@ -931,7 +931,7 @@ SetNoteChannel
 	STA Numerator
 	LDA #10
 	STA Denominator
-	JSR div10
+	JSR divide
 	STA NoteDelayCounter
 	LDA Numerator
 	CMP #24
@@ -976,19 +976,19 @@ noEor2:
 	EOR rand2
 	RTS
 
-div10
+divide
 	LDA #0
 	LDX #8
 	ASL Numerator
-div10L1
+divL1
 	ROL
 	CMP Denominator
-	BCC div10L2
+	BCC divL2
 	SBC Denominator
-div10L2
+divL2
 	ROL Numerator
 	DEX
-	BNE div10L1
+	BNE divL1
 	RTS
 
 
