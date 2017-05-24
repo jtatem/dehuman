@@ -41,9 +41,6 @@ Player1ColInner = $B5
 RandSpriteA = $B6
 RandSpriteB = $B7
 RandSpriteC = $B8
-RandSpriteD = $B9
-RandSpriteE = $BA
-RandSpriteF = $BB
 
 BeatDelayCounter = $C4
 BeatPosCounter = $C5
@@ -403,14 +400,6 @@ DoneLowerBound
 	STA RandSpriteB
 	JSR randomize
 	STA RandSpriteC
-	JSR randomize
-	STA RandSpriteD
-	JSR randomize
-	STA RandSpriteE
-	JSR randomize
-	STA RandSpriteF
-
-
 
 ; END SAFE ZONE FOR PRE-VISIBLE FRAME STUFF
 
@@ -496,16 +485,16 @@ ScanLoopBWsyncBypass
 
 
     LDA AltPF0SpriteB-1,X
-	ORA RandSpriteD
+	ORA RandSpriteC
     STA PF0
 
     LDA AltPF1SpriteB-1,X
-	ORA RandSpriteE
+	ORA RandSpriteA
     STA PF1
 
 
     LDA AltPF2SpriteB-1,X
-	ORA RandSpriteF
+	ORA RandSpriteB
     STA PF2
 
 
