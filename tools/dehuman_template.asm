@@ -45,8 +45,6 @@ RandSpriteD = $B9
 RandSpriteE = $BA
 RandSpriteF = $BB
 
-FrameCounter = $BC
-
 BeatDelayCounter = $C4
 BeatPosCounter = $C5
 ActiveBeatData = $C6
@@ -93,8 +91,6 @@ ClearMem
 	STA SpeedChangePointer
 	LDA #10
 	STA SpeedChangeCounter
-	LDA #0
-	STA FrameCounter
 
 	; init music counters
 
@@ -389,7 +385,7 @@ DoneLowerBound
 
 	LDA RangeUpperBound
 	STA GRP0
-	LDA FrameCounter
+	LDA RangeLowerBound
 	STA GRP1
 
 	; Set player speeds
@@ -946,11 +942,6 @@ NoSilence
 	LDA #10
 	STA AUDV1
 DoneNoteChannel
-
-	LDA FrameCounter
-	SBC #1
-	STA FrameCounter
-
 
 
 ; OVERSCAN END
