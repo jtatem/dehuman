@@ -98,11 +98,11 @@ ClearMem
 
 	; init music counters
 
-	LDA #34
+	LDA #{BeatDataALen}
 	STA BeatDataALen
-	LDA #50
+	LDA #{BeatDataBLen}
 	STA BeatDataBLen
-	LDA #21
+	LDA #{BeatDataCLen}
 	STA BeatDataCLen
 	LDA #1
 	STA ActiveBeatData
@@ -112,11 +112,11 @@ ClearMem
 	LDA BeatDataALen
 	STA BeatPosCounter
 
-	LDA #18
+	LDA #{NoteDataALen}
 	STA NoteDataALen
-	LDA #58
+	LDA #{NoteDataBLen}
 	STA NoteDataBLen
-	LDA #24
+	LDA #{NoteDataCLen}
 	STA NoteDataCLen
 	LDA #1
 	STA ActiveNoteData

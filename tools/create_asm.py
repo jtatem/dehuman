@@ -17,12 +17,22 @@ def generate_asm(foreground,
     with open(note_data) as f:
         note_asm = f.read()
 
+    beat_range_lengths = count_segment_lengths(beat_asm)
+    note_range_lengths = count_segment_lengths(note_asm)
+
     with open(template) as f:
         asm_text = f.read()
     asm_text = asm_text.format(ForegroundImage=foreground_asm,
                                BackgroundImage=background_asm,
                                BeatData=beat_asm,
-                               NoteData=note_asm)
+                               NoteData=note_asm,
+                               BeatDataALen=beat_range_lengths['A'],
+                               BeatDataBLen=beat_range_lengths['B'],
+                               BeatDataCLen=beat_range_lengths['C'],
+                               NoteDataALen=note_range_lengths['A'],
+                               NoteDataBLen=note_range_lengths['B'],
+                               NoteDataCLen=note_range_lengths['C']
+                               )
 
     with open(out, 'w') as f:
         f.write(asm_text)
@@ -30,7 +40,7 @@ def generate_asm(foreground,
     return asm_text
 
 
-def count_segment_lenghts(asm_text):
+def count_segment_lengths(asm_text):
     segment_name = None
     results = dict()
     for line in asm_text.split('\n'):
@@ -59,5 +69,5 @@ if __name__ == '__main__':
     print('Generating ASM using images {0} and {1} with template {2}'.format(args.foreground_image[0],
                                                                              args.background_image[0],
                                                                              args.template))
-    #generate_asm(args.foreground_image[0], args.background_image[0], args.beat_data, args.note_data, args.out_file, args.template)
+    generate_asm(args.foreground_image[0], args.background_image[0], args.beat_file, args.note_file, args.out_file, args.template)
     print('Generated ASM written to {0}'.format(args.out_file))
