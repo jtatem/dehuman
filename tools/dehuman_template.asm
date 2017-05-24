@@ -270,22 +270,19 @@ RangeUpperBoundSpeedRandom
 	BCS UpperBoundSpeed2
 UpperBoundSpeed1
 	LDA #1
-	STA RangeUpperBoundSpeed
-	JMP DoneUpperBound
+	JMP SetUpperBoundSpeed
 UpperBoundSpeed2
 	LDA #2
-	STA RangeUpperBoundSpeed
-	JMP DoneUpperBound
+	JMP SetUpperBoundSpeed
 UpperBoundSpeed3
 	LDA #3
-	STA RangeUpperBoundSpeed
-	JMP DoneUpperBound
+	JMP SetUpperBoundSpeed
 UpperBoundSpeed4
 	LDA #4
-	STA RangeUpperBoundSpeed
-	JMP DoneUpperBound
+	JMP SetUpperBoundSpeed
 UpperBoundSpeed5
 	LDA #5
+SetUpperBoundSpeed
 	STA RangeUpperBoundSpeed
 DoneUpperBound
 
@@ -332,22 +329,19 @@ RangeLowerBoundSpeedRandom
 	BCS LowerBoundSpeed2
 LowerBoundSpeed1
 	LDA #2
-	STA RangeLowerBoundSpeed
-	JMP DoneLowerBound
+	JMP SetLowerBoundSpeed
 LowerBoundSpeed2
 	LDA #4
-	STA RangeLowerBoundSpeed
-	JMP DoneLowerBound
+	JMP SetLowerBoundSpeed
 LowerBoundSpeed3
 	LDA #6
-	STA RangeLowerBoundSpeed
-	JMP DoneLowerBound
+	JMP SetLowerBoundSpeed
 LowerBoundSpeed4
 	LDA #8
-	STA RangeLowerBoundSpeed
-	JMP DoneLowerBound
+	JMP SetLowerBoundSpeed
 LowerBoundSpeed5
 	LDA #10
+SetLowerBoundSpeed
 	STA RangeLowerBoundSpeed
 DoneLowerBound
 
