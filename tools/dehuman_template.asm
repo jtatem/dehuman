@@ -608,14 +608,13 @@ DoneSelectBeat
 	BEQ SetActiveBeatC
 SetActiveBeatA
 	LDA BeatDataALen
-	STA BeatPosCounter
-	JMP DoneSetBeat
+	JMP SetActiveBeatLen
 SetActiveBeatB
 	LDA BeatDataBLen
-	STA BeatPosCounter
-	JMP DoneSetBeat
+	JMP SetActiveBeatLen
 SetActiveBeatC
 	LDA BeatDataCLen
+SetActiveBeatLen
 	STA BeatPosCounter
 DoneSetBeat
 	LDA #1
@@ -773,14 +772,13 @@ DoneSelectNote
 	BEQ SetActiveNoteC
 SetActiveNoteA
 	LDA NoteDataALen
-	STA NotePosCounter
-	JMP DoneSetNote
+	JMP SetActiveNoteLen
 SetActiveNoteB
 	LDA NoteDataBLen
-	STA NotePosCounter
-	JMP DoneSetNote
+	JMP SetActiveNoteLen
 SetActiveNoteC
 	LDA NoteDataCLen
+SetActiveNoteLen
 	STA NotePosCounter
 DoneSetNote
 	LDA #1
@@ -817,34 +815,28 @@ ResetInstrumentPointer
 	STA NoteInstrumentPointer
 UseSaw
 	LDA #1
-	STA NoteInstrumentValue
-	JMP DoneChangeInstrument
+	JMP SetNoteInstrumentValue
 UseEngine
 	LDA #3
-	STA NoteInstrumentValue
-	JMP DoneChangeInstrument
+	JMP SetNoteInstrumentValue
 UseSquare
 	LDA #4
-	STA NoteInstrumentValue
-	JMP DoneChangeInstrument
+	JMP SetNoteInstrumentValue
 UseBass
 	LDA #6
-	STA NoteInstrumentValue
-	JMP DoneChangeInstrument
+	JMP SetNoteInstrumentValue
 UseLogBuzz
 	LDA #7
-	STA NoteInstrumentValue
-	JMP DoneChangeInstrument
+	JMP SetNoteInstrumentValue
 UseNoise
 	LDA #8
-	STA NoteInstrumentValue
-	JMP DoneChangeInstrument
+	JMP SetNoteInstrumentValue
 UseLead
 	LDA #12
-	STA NoteInstrumentValue
-	JMP DoneChangeInstrument
+	JMP SetNoteInstrumentValue
 UseBuzz
 	LDA #15
+SetNoteInstrumentValue
 	STA NoteInstrumentValue
 DoneChangeInstrument
 
@@ -1103,13 +1095,7 @@ GrayCycle
 
 {ForegroundImage}
 
-    .byte #%00000000
-    .byte #%00000000
-
 {BackgroundImage}
-
-    .byte #%00000000
-    .byte #%00000000
 
     org $FFFC
     .word Start
