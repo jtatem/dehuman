@@ -101,13 +101,13 @@ ClearMem
 	STA NoteDataBLen
 	LDA #18
 	STA NoteDataCLen
-
+	
 	LDA #1
 	STA ActiveNoteData
 	STA ActiveBeatData
 	STA NoteDelayCounter
 	STA BeatDelayCounter
-
+	
 	LDA BeatDataALen
 	STA BeatPosCounter
 	LDA NoteDataALen
