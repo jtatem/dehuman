@@ -45,10 +45,15 @@ def generate_asm(foreground_asm,
                  beat_asm,
                  note_asm,
                  out,
-                 template):
+                 template,
+                 max_music_data_size=400
+                 ):
 
     beat_range_lengths = count_segment_lengths(beat_asm)
     note_range_lengths = count_segment_lengths(note_asm)
+
+    if sum(beat_range_lengths.values()) + sum(note_range_lengths.values()) > max_music_data_size:
+        raise Exception('Total music data size of {0} is greater than max of {1}!'.format(sum(beat_range_lengths.values()) + sum(note_range_lengths.values()), max_music_data_size))
 
     with open(template) as f:
         asm_text = f.read()
