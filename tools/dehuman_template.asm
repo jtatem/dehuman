@@ -5,16 +5,16 @@
 
 rand1 = $80
 rand2 = $81
-RangeUpperBound = $90
-RangeLowerBound = $91
-RangeUpperBoundDir = $92
-RangeLowerBoundDir = $93
-RangeUpperBoundSpeed = $94
-RangeLowerBoundSpeed = $95
+RangeUpperBound = $82
+RangeLowerBound = $83
+RangeUpperBoundDir = $84
+RangeLowerBoundDir = $85
+RangeUpperBoundSpeed = $86
+RangeLowerBoundSpeed = $87
 
-RangeASize = $97
-RangeBSize = $98
-RangeCSize = $99
+RangeASize = $88
+RangeBSize = $89
+RangeCSize = $8A
 
 RangeUpperMax = $A0
 RangeLowerMin = $A1
@@ -27,8 +27,8 @@ BgColInner = $A6
 FgColInner = $A7
 
 SpeedChangeCounter = $A8
-Player0Speed = $AA
-Player1Speed = $AB
+Player0Speed = $A9
+Player1Speed = $AA
 
 ColorChangeCounter = $B0
 ColorChangePointer = $B1
@@ -41,17 +41,17 @@ RandSpriteA = $B6
 RandSpriteB = $B7
 RandSpriteC = $B8
 
-BeatDelayCounter = $C4
-BeatPosCounter = $C5
-ActiveBeatData = $C6
-BeatDataALen = $C7
-BeatDataBLen = $C8
-BeatDataCLen = $C9
+BeatDelayCounter = $C0
+BeatPosCounter = $C1
+ActiveBeatData = $C2
+BeatDataALen = $C3
+BeatDataBLen = $C4
+BeatDataCLen = $C5
 
-LeftFreqDiv = $CA
-RightFreqDiv = $CB
-LeftFreqChangeTimer = $CC
-RightFreqChangeTimer = $CD
+LeftFreqDiv = $C6
+RightFreqDiv = $C7
+LeftFreqChangeTimer = $C8
+RightFreqChangeTimer = $C9
 
 Numerator = $D0
 Denominator = $D1
