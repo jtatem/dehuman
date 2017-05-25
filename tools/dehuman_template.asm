@@ -113,9 +113,6 @@ ClearMem
 	LDA NoteDataALen
 	STA NotePosCounter
 
-	; LDA #0
-	; STA LeftFreqDiv
-	; STA RightFreqDiv
 	LDA #2
 	STA LeftFreqChangeTimer
 	STA RightFreqChangeTimer
@@ -141,8 +138,6 @@ ClearMem
 	STA RangeUpperBound
 	LDA #75
 	STA RangeLowerBound
-	; LDA #0
-	; STA RangeLowerBoundDir
 	LDA #1
 	STA RangeUpperBoundDir
 	STA RangeUpperBoundSpeed
