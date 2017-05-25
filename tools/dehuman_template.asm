@@ -581,7 +581,7 @@ StartBeatChannel
 	BNE BeatPlayNothingRelay
 	LDA #%00000100 ; P2 Left
 	BIT SWCHA
-	BEQ PlayKickRelay
+	BEQ PlayKickDrum
 	LDA #%00001000 ; P2 Right
 	BIT SWCHA
 	BEQ PlaySnareRelay
@@ -628,18 +628,12 @@ UseBeatChannelB
 UseBeatChannelC
 	LDA BeatControlDataC-1,Y
 	JMP ChooseBeatInstrument
-PlayKickRelay
-	LDA #1
-	JMP ChooseBeatInstrument
 PlaySnareRelay
-	LDA #2
-	JMP ChooseBeatInstrument
+	JMP PlaySnareDrum
 PlayHatClosedRelay
-	LDA #3
-	JMP ChooseBeatInstrument
+	JMP PlayHatClosed
 PlayHatOpenRelay
-	LDA #4
-	JMP ChooseBeatInstrument
+	JMP PlayHatOpen
 BeatPlayNothingRelay
 	JMP BeatPlayNothing
 ChooseBeatInstrument
