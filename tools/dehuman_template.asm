@@ -27,7 +27,6 @@ BgColInner = $A6
 FgColInner = $A7
 
 SpeedChangeCounter = $A8
-SpeedChangePointer = $A9
 Player0Speed = $AA
 Player1Speed = $AB
 
@@ -84,8 +83,6 @@ ClearMem
 	STA ColorChangePointer
 	LDA #6
 	STA ColorChangeCounter
-	LDA #29
-	STA SpeedChangePointer
 	LDA #10
 	STA SpeedChangeCounter
 
@@ -97,13 +94,6 @@ ClearMem
 	STA BeatDataBLen
 	LDA #{BeatDataCLen}
 	STA BeatDataCLen
-	LDA #1
-	STA ActiveBeatData
-
-	LDA #1
-	STA BeatDelayCounter
-	LDA BeatDataALen
-	STA BeatPosCounter
 
 	LDA #{NoteDataALen}
 	STA NoteDataALen
@@ -111,17 +101,21 @@ ClearMem
 	STA NoteDataBLen
 	LDA #{NoteDataCLen}
 	STA NoteDataCLen
+	
 	LDA #1
 	STA ActiveNoteData
-
-	LDA #1
+	STA ActiveBeatData
 	STA NoteDelayCounter
+	STA BeatDelayCounter
+	
+	LDA BeatDataALen
+	STA BeatPosCounter
 	LDA NoteDataALen
 	STA NotePosCounter
 
-	LDA #0
-	STA LeftFreqDiv
-	STA RightFreqDiv
+	; LDA #0
+	; STA LeftFreqDiv
+	; STA RightFreqDiv
 	LDA #2
 	STA LeftFreqChangeTimer
 	STA RightFreqChangeTimer
@@ -131,11 +125,6 @@ ClearMem
 	LDA #6
 	STA NoteInstrumentValue
 
-
-	LDA #210
-	STA rand1
-	LDA #69
-	STA rand2
 
 ; Setup sliding range initial values
 
@@ -152,13 +141,11 @@ ClearMem
 	STA RangeUpperBound
 	LDA #75
 	STA RangeLowerBound
+	; LDA #0
+	; STA RangeLowerBoundDir
 	LDA #1
 	STA RangeUpperBoundDir
-	LDA #0
-	STA RangeLowerBoundDir
-	LDA #1
 	STA RangeUpperBoundSpeed
-	LDA #1
 	STA RangeLowerBoundSpeed
 
 	; Initialize random seeds
@@ -179,7 +166,7 @@ MainLoop
     STA  WSYNC
     LDA  #43 ; a = 43. 2798 cycles to wait. Using 64 cycle timer, that's about 43
     STA  TIM64T ; store that in the timer
-    LDA #0      ; a = 0, need 0 for disabling VSYNC
+    LDA  #0      ; a = 0, need 0 for disabling VSYNC
     STA  VSYNC  ; disable vsync
 
 ; SAFE ZONE FOR PRE-VISIBLE FRAME STUFF
