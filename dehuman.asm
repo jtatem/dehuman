@@ -1,7 +1,7 @@
     processor 6502
     include vcs.h
     org $F000
-	
+
 
 rand1 = $80
 rand2 = $81
@@ -27,7 +27,6 @@ BgColInner = $A6
 FgColInner = $A7
 
 SpeedChangeCounter = $A8
-SpeedChangePointer = $A9
 Player0Speed = $AA
 Player1Speed = $AB
 
@@ -41,11 +40,6 @@ Player1ColInner = $B5
 RandSpriteA = $B6
 RandSpriteB = $B7
 RandSpriteC = $B8
-RandSpriteD = $B9
-RandSpriteE = $BA
-RandSpriteF = $BB
-
-FrameCounter = $BC
 
 BeatDelayCounter = $C4
 BeatPosCounter = $C5
@@ -75,75 +69,60 @@ NoteInstrumentValue = $E7
 
 Start
     SEI ; disable interrupts
-    CLD ; clear BCD math bit    
+    CLD ; clear BCD math bit
     LDX #$FF ; x = 255
     TXS ; use x to reset stack pointer
-    LDA #0 ; store 0 in a, will use this to clear mem           
-ClearMem 
+    LDA #0 ; store 0 in a, will use this to clear mem
+ClearMem
     STA 0,X     ; put value of a (0) into the mem loc x+0
-    DEX ; decrement x   
+    DEX ; decrement x
     BNE ClearMem ; keep looping til x hits 0
-	
+
 ; Other pre-drawing setup
 	LDA #7
 	STA ColorChangePointer
 	LDA #6
 	STA ColorChangeCounter
-	LDA #29
-	STA SpeedChangePointer
 	LDA #10
 	STA SpeedChangeCounter
-	LDA #0
-	STA FrameCounter
-	
+
 	; init music counters
-	
+
 	LDA #34
 	STA BeatDataALen
 	LDA #50
 	STA BeatDataBLen
 	LDA #21
 	STA BeatDataCLen
-	LDA #1
-	STA ActiveBeatData
-	
-	LDA #1
-	STA BeatDelayCounter
-	LDA BeatDataALen
-	STA BeatPosCounter
-	
+
 	LDA #18
 	STA NoteDataALen
 	LDA #58
 	STA NoteDataBLen
-	LDA #24
+	LDA #18
 	STA NoteDataCLen
+
 	LDA #1
 	STA ActiveNoteData
-	
-	LDA #1
+	STA ActiveBeatData
 	STA NoteDelayCounter
+	STA BeatDelayCounter
+
+	LDA BeatDataALen
+	STA BeatPosCounter
 	LDA NoteDataALen
 	STA NotePosCounter
-	
-	LDA #0
-	STA LeftFreqDiv
-	STA RightFreqDiv
+
 	LDA #2
 	STA LeftFreqChangeTimer
 	STA RightFreqChangeTimer
-	
+
 	LDA #4
 	STA NoteInstrumentPointer
 	LDA #6
 	STA NoteInstrumentValue
-	
-		
-	LDA #210
-	STA rand1
-	LDA #69
-	STA rand2
-	
+
+
 ; Setup sliding range initial values
 
 	LDA #185
@@ -161,38 +140,34 @@ ClearMem
 	STA RangeLowerBound
 	LDA #1
 	STA RangeUpperBoundDir
-	LDA #0
-	STA RangeLowerBoundDir
-	LDA #1
 	STA RangeUpperBoundSpeed
-	LDA #1
 	STA RangeLowerBoundSpeed
-	
+
 	; Initialize random seeds
-	
+
 	LDA #77
 	STA rand1
 	LDA #202
 	STA rand2
 
 
-    
-; Let's draw a frame    
+
+; Let's draw a frame
 MainLoop
     LDA  #2 ; a = 2, need bit 1 for enabling VSYNC
     STA  VSYNC  ; enable VSYNC
     STA  WSYNC  ; hold VSYNC for 3 scanlines by WSYNC'ing 3x
     STA  WSYNC  ; WSYNC doesn't care what value is passed
-    STA  WSYNC  
-    LDA  #43 ; a = 43. 2798 cycles to wait. Using 64 cycle timer, that's about 43       
+    STA  WSYNC
+    LDA  #43 ; a = 43. 2798 cycles to wait. Using 64 cycle timer, that's about 43
     STA  TIM64T ; store that in the timer
-    LDA #0      ; a = 0, need 0 for disabling VSYNC     
+    LDA  #0      ; a = 0, need 0 for disabling VSYNC
     STA  VSYNC  ; disable vsync
 
 ; SAFE ZONE FOR PRE-VISIBLE FRAME STUFF
 
 
-	
+
 	DEC ColorChangeCounter
 	BNE EndColorChangeBlock
 	LDX ColorChangePointer
@@ -218,28 +193,23 @@ MainLoop
 	BNE EndColorChangeBlock
 	LDA #7
 	STA ColorChangePointer
-EndColorChangeBlock    
-
+EndColorChangeBlock
 
 	DEC SpeedChangeCounter
 	BNE EndSpeedChangeBlock
-	LDX SpeedChangePointer
-	LDA Player0SpeedRange-1,X
+	LDA Player0Speed
+	ADC #2
 	STA Player0Speed
-	LDA Player1SpeedRange,X
+	LDA Player1Speed
+	SBC #6
 	STA Player1Speed
 	LDA #10
 	STA SpeedChangeCounter
-	DEC SpeedChangePointer
-	BNE EndSpeedChangeBlock
-	LDA #29
-	STA SpeedChangePointer
-
 EndSpeedChangeBlock
-    
+
 
 ;	Apply range changes
-	
+
 	LDA RangeUpperBoundDir
 	CMP #1
 	BEQ RangeUpperBoundAdd
@@ -282,22 +252,19 @@ RangeUpperBoundSpeedRandom
 	BCS UpperBoundSpeed2
 UpperBoundSpeed1
 	LDA #1
-	STA RangeUpperBoundSpeed
-	JMP DoneUpperBound
+	JMP SetUpperBoundSpeed
 UpperBoundSpeed2
 	LDA #2
-	STA RangeUpperBoundSpeed
-	JMP DoneUpperBound
+	JMP SetUpperBoundSpeed
 UpperBoundSpeed3
 	LDA #3
-	STA RangeUpperBoundSpeed
-	JMP DoneUpperBound
+	JMP SetUpperBoundSpeed
 UpperBoundSpeed4
 	LDA #4
-	STA RangeUpperBoundSpeed
-	JMP DoneUpperBound
+	JMP SetUpperBoundSpeed
 UpperBoundSpeed5
 	LDA #5
+SetUpperBoundSpeed
 	STA RangeUpperBoundSpeed
 DoneUpperBound
 
@@ -344,22 +311,19 @@ RangeLowerBoundSpeedRandom
 	BCS LowerBoundSpeed2
 LowerBoundSpeed1
 	LDA #2
-	STA RangeLowerBoundSpeed
-	JMP DoneLowerBound
+	JMP SetLowerBoundSpeed
 LowerBoundSpeed2
 	LDA #4
-	STA RangeLowerBoundSpeed
-	JMP DoneLowerBound
+	JMP SetLowerBoundSpeed
 LowerBoundSpeed3
 	LDA #6
-	STA RangeLowerBoundSpeed
-	JMP DoneLowerBound
+	JMP SetLowerBoundSpeed
 LowerBoundSpeed4
 	LDA #8
-	STA RangeLowerBoundSpeed
-	JMP DoneLowerBound
+	JMP SetLowerBoundSpeed
 LowerBoundSpeed5
 	LDA #10
+SetLowerBoundSpeed
 	STA RangeLowerBoundSpeed
 DoneLowerBound
 
@@ -374,15 +338,15 @@ DoneLowerBound
 	STA RangeBSize
 	LDA RangeLowerBound
 	STA RangeCSize
-	
-	
+
+
 	; Init iterator registers
-	
+
 	LDY RangeASize
 	LDX #191
-	
+
 	; Set colors for first region
-	
+
 	LDA FgColOuter
 	STA COLUPF
 	LDA BgColOuter
@@ -391,74 +355,66 @@ DoneLowerBound
 	STA COLUP0
 	LDA Player1ColOuter
 	STA COLUP1
-	
+
 	LDA RangeUpperBound
 	STA GRP0
-	LDA FrameCounter
+	LDA RangeLowerBound
 	STA GRP1
-	
+
 	; Set player speeds
-	
+
 	LDA Player0Speed
 	STA HMP0
 	LDA Player1Speed
 	STA HMP1
-	
+
 	; Set some randoms we'll use per frame
-	
+
 	JSR randomize
 	STA RandSpriteA
 	JSR randomize
 	STA RandSpriteB
 	JSR randomize
 	STA RandSpriteC
-	JSR randomize
-	STA RandSpriteD
-	JSR randomize
-	STA RandSpriteE
-	JSR randomize
-	STA RandSpriteF
 
-
-	
 ; END SAFE ZONE FOR PRE-VISIBLE FRAME STUFF
 
 WaitForVblankEnd
-    LDA INTIM     
-    BNE WaitForVblankEnd 
-    STA WSYNC 
+    LDA INTIM
+    BNE WaitForVblankEnd
+    STA WSYNC
     STA VBLANK ; needs to be 0, we get that from timer end
     STA HMOVE
 	STA WSYNC
 
 ScanLoopA
     STA WSYNC
-    
+
     LDA PF0SpriteA-1,X
-    STA PF0 
-        
+    STA PF0
+
     LDA PF1SpriteA-1,X
     STA PF1
-	
-    
+
+
     LDA PF2SpriteA-1,X
-    STA PF2 
-   
- 
+    STA PF2
+
+
     LDA PF0SpriteB-1,X
-    STA PF0 
-    
+    STA PF0
+
 	NOP
-	
+
     LDA PF1SpriteB-1,X
     STA PF1
-	
+
 	NOP
 	NOP
-    
+
     LDA PF2SpriteB-1,X
     STA PF2
-	
+
 	LDA INPT5 ; P1 Fire
 	BMI EndLineA
 	NOP
@@ -468,7 +424,7 @@ ScanLoopA
 	NOP
 	NOP
 
-    
+
 EndLineA
 
 	DEX
@@ -492,33 +448,33 @@ ScanLoopBWsyncBypass
 
     LDA AltPF0SpriteA-1,X
 	ORA RandSpriteA
-    STA PF0 
-        
+    STA PF0
+
     LDA AltPF1SpriteA-1,X
 	ORA RandSpriteB
     STA PF1
-	
-    
+
+
     LDA AltPF2SpriteA-1,X
 	ORA RandSpriteC
-    STA PF2 
-   	
- 
-    LDA AltPF0SpriteB-1,X
-	ORA RandSpriteD
-    STA PF0 
-    
-    LDA AltPF1SpriteB-1,X
-	ORA RandSpriteE
-    STA PF1
-	
-    
-    LDA AltPF2SpriteB-1,X
-	ORA RandSpriteF
     STA PF2
-    
-    
-EndLineB 
+
+
+    LDA AltPF0SpriteB-1,X
+	ORA RandSpriteC
+    STA PF0
+
+    LDA AltPF1SpriteB-1,X
+	ORA RandSpriteA
+    STA PF1
+
+
+    LDA AltPF2SpriteB-1,X
+	ORA RandSpriteB
+    STA PF2
+
+
+EndLineB
 
 	DEX
     DEY
@@ -538,51 +494,51 @@ EndLineB
 ScanLoopC
     STA WSYNC
 ScanLoopCWsyncBypass
- 
+
     LDA PF0SpriteA-1,X
-    STA PF0 
-        
+    STA PF0
+
     LDA PF1SpriteA-1,X
     STA PF1
-	
-    
+
+
     LDA PF2SpriteA-1,X
-    STA PF2 
-   
- 
+    STA PF2
+
+
     LDA PF0SpriteB-1,X
-    STA PF0 
-    
+    STA PF0
+
 	NOP
-	
+
     LDA PF1SpriteB-1,X
     STA PF1
-	
+
 	NOP
 	NOP
-	
-	
-    
+
+
+
     LDA PF2SpriteB-1,X
     STA PF2
-	
-    
-    
+
+
+
 EndLineC
 
 	DEX
     DEY
-    BNE ScanLoopC ; keep going til we run out of scanlines  	
-	
-    LDA #2      ; a = 2, will use that for VBLANK (make output invisible for overscan)  
-    STA WSYNC     	
+    BNE ScanLoopC ; keep going til we run out of scanlines
+
+    LDA #2      ; a = 2, will use that for VBLANK (make output invisible for overscan)
+    STA WSYNC
     STA VBLANK  ; disable output
 
 ; OVERSCAN START
-	
+
 	LDA #33 ; 2,112 CPU cycles, what will we ever do with the time???
-	STA TIM64T	
-	
+	STA TIM64T
+
 	; Music shit
 
 
@@ -608,25 +564,24 @@ DoneSelectBeat
 	BEQ SetActiveBeatC
 SetActiveBeatA
 	LDA BeatDataALen
-	STA BeatPosCounter
-	JMP DoneSetBeat
+	JMP SetActiveBeatLen
 SetActiveBeatB
 	LDA BeatDataBLen
-	STA BeatPosCounter
-	JMP DoneSetBeat
+	JMP SetActiveBeatLen
 SetActiveBeatC
 	LDA BeatDataCLen
+SetActiveBeatLen
 	STA BeatPosCounter
 DoneSetBeat
 	LDA #1
 	STA BeatDelayCounter
-	
+
 StartBeatChannel
 	DEC BeatDelayCounter
 	BNE BeatPlayNothingRelay
 	LDA #%00000100 ; P2 Left
 	BIT SWCHA
-	BEQ PlayKickRelay
+	BEQ PlayKickDrum
 	LDA #%00001000 ; P2 Right
 	BIT SWCHA
 	BEQ PlaySnareRelay
@@ -647,14 +602,13 @@ StartBeatChannel
 	BEQ UseBeatChannelCLen
 UseBeatChannelALen
 	LDA BeatDataALen
-	STA BeatPosCounter
-	JMP NoResetBeatPosCounter
+	JMP SetBeatDataLen
 UseBeatChannelBLen
 	LDA BeatDataBLen
-	STA BeatPosCounter
-	JMP NoResetBeatPosCounter
+	JMP SetBeatDataLen
 UseBeatChannelCLen
 	LDA BeatDataCLen
+SetBeatDataLen
 	STA BeatPosCounter
 NoResetBeatPosCounter
 	LDY BeatPosCounter
@@ -674,18 +628,12 @@ UseBeatChannelB
 UseBeatChannelC
 	LDA BeatControlDataC-1,Y
 	JMP ChooseBeatInstrument
-PlayKickRelay
-	LDA #1
-	JMP ChooseBeatInstrument
 PlaySnareRelay
-	LDA #2
-	JMP ChooseBeatInstrument
+	JMP PlaySnareDrum
 PlayHatClosedRelay
-	LDA #3
-	JMP ChooseBeatInstrument
+	JMP PlayHatClosed
 PlayHatOpenRelay
-	LDA #4
-	JMP ChooseBeatInstrument
+	JMP PlayHatOpen
 BeatPlayNothingRelay
 	JMP BeatPlayNothing
 ChooseBeatInstrument
@@ -773,14 +721,13 @@ DoneSelectNote
 	BEQ SetActiveNoteC
 SetActiveNoteA
 	LDA NoteDataALen
-	STA NotePosCounter
-	JMP DoneSetNote
+	JMP SetActiveNoteLen
 SetActiveNoteB
 	LDA NoteDataBLen
-	STA NotePosCounter
-	JMP DoneSetNote
+	JMP SetActiveNoteLen
 SetActiveNoteC
 	LDA NoteDataCLen
+SetActiveNoteLen
 	STA NotePosCounter
 DoneSetNote
 	LDA #1
@@ -817,37 +764,31 @@ ResetInstrumentPointer
 	STA NoteInstrumentPointer
 UseSaw
 	LDA #1
-	STA NoteInstrumentValue
-	JMP DoneChangeInstrument
+	JMP SetNoteInstrumentValue
 UseEngine
 	LDA #3
-	STA NoteInstrumentValue
-	JMP DoneChangeInstrument
+	JMP SetNoteInstrumentValue
 UseSquare
 	LDA #4
-	STA NoteInstrumentValue
-	JMP DoneChangeInstrument
+	JMP SetNoteInstrumentValue
 UseBass
 	LDA #6
-	STA NoteInstrumentValue
-	JMP DoneChangeInstrument
+	JMP SetNoteInstrumentValue
 UseLogBuzz
 	LDA #7
-	STA NoteInstrumentValue
-	JMP DoneChangeInstrument
+	JMP SetNoteInstrumentValue
 UseNoise
 	LDA #8
-	STA NoteInstrumentValue
-	JMP DoneChangeInstrument
+	JMP SetNoteInstrumentValue
 UseLead
 	LDA #12
-	STA NoteInstrumentValue
-	JMP DoneChangeInstrument
+	JMP SetNoteInstrumentValue
 UseBuzz
 	LDA #15
+SetNoteInstrumentValue
 	STA NoteInstrumentValue
 DoneChangeInstrument
-	
+
 	LDA #%01000000 ; P1 Left
 	BIT SWCHA
 	BEQ LeftActive
@@ -916,14 +857,13 @@ SkipNote
 	JMP DoneNoteChannel
 UseNoteChannelALen
 	LDA NoteDataALen
-	STA NotePosCounter
-	JMP NoResetNotePosCounter
+	JMP SetNoteChannelLen
 UseNoteChannelBLen
 	LDA NoteDataBLen
-	STA NotePosCounter
-	JMP NoResetNotePosCounter
+	JMP SetNoteChannelLen
 UseNoteChannelCLen
 	LDA NoteDataCLen
+SetNoteChannelLen
 	STA NotePosCounter
 NoResetNotePosCounter
 	LDY NotePosCounter
@@ -946,7 +886,7 @@ SetNoteChannel
 	STA Numerator
 	LDA #10
 	STA Denominator
-	JSR div10
+	JSR divide
 	STA NoteDelayCounter
 	LDA Numerator
 	CMP #24
@@ -962,11 +902,6 @@ NoSilence
 	STA AUDV1
 DoneNoteChannel
 
-	LDA FrameCounter
-	SBC #1
-	STA FrameCounter
-
-	
 
 ; OVERSCAN END
 OverScanWait
@@ -974,7 +909,7 @@ OverScanWait
     BNE OverScanWait
 	STA WSYNC
     JMP  MainLoop
-	
+
 randomize
 	LDA rand1
 	ASL
@@ -990,23 +925,23 @@ noEor2:
 	STA rand1
 	EOR rand2
 	RTS
-	
-div10
+
+divide
 	LDA #0
 	LDX #8
 	ASL Numerator
-div10L1
+divL1
 	ROL
 	CMP Denominator
-	BCC div10L2
+	BCC divL2
 	SBC Denominator
-div10L2
+divL2
 	ROL Numerator
 	DEX
-	BNE div10L1
+	BNE divL1
 	RTS
-	
-	
+
+
 NoteControlDataA
 	.byte #83
 	.byte #113
@@ -1015,18 +950,18 @@ NoteControlDataA
 	.byte #243
 	.byte #209
 	.byte #243
-	.byte #209	
-	.byte #243
 	.byte #209
 	.byte #243
 	.byte #209
 	.byte #243
 	.byte #209
 	.byte #243
-	.byte #209	
+	.byte #209
 	.byte #243
 	.byte #209
-	
+	.byte #243
+	.byte #209
+
 NoteControlDataB
 	.byte #2
 	.byte #12
@@ -1086,7 +1021,7 @@ NoteControlDataB
 	.byte #242
 	.byte #2
 	.byte #242
-	
+
 NoteControlDataC
 	.byte #246
 	.byte #246
@@ -1106,7 +1041,8 @@ NoteControlDataC
 	.byte #191
 	.byte #181
 	.byte #171
-	
+
+
 BeatControlDataA
 	.byte #104
 	.byte #4
@@ -1195,7 +1131,7 @@ BeatControlDataB
 	.byte #109
 	.byte #1
 
-	
+
 BeatControlDataC
 	.byte #103
 	.byte #4
@@ -1220,71 +1156,6 @@ BeatControlDataC
 	.byte #1
 
 
-
-Player0SpeedRange
-	.byte #$00
-	.byte #$10
-	.byte #$20
-	.byte #$30
-	.byte #$40
-	.byte #$50
-	.byte #$60
-	.byte #$70
-	.byte #$80
-	.byte #$90
-	.byte #$A0
-	.byte #$B0
-	.byte #$C0
-	.byte #$D0
-	.byte #$E0
-	.byte #$F0
-	.byte #$E0
-	.byte #$D0
-	.byte #$C0
-	.byte #$B0
-	.byte #$A0
-	.byte #$90
-	.byte #$80
-	.byte #$70
-	.byte #$60
-	.byte #$50
-	.byte #$40
-	.byte #$30
-	.byte #$20
-	.byte #$10
-	
-Player1SpeedRange
-	.byte #$40
-	.byte #$50
-	.byte #$60
-	.byte #$70
-	.byte #$80
-	.byte #$90
-	.byte #$A0
-	.byte #$B0
-	.byte #$C0
-	.byte #$D0
-	.byte #$E0
-	.byte #$F0
-	.byte #$E0
-	.byte #$D0
-	.byte #$C0
-	.byte #$B0
-	.byte #$A0
-	.byte #$90
-	.byte #$80
-	.byte #$70
-	.byte #$60
-	.byte #$50
-	.byte #$40
-	.byte #$30
-	.byte #$20
-	.byte #$10
-	.byte #$00
-	.byte #$10
-	.byte #$20
-	.byte #$30
-
 RedColors
 	.byte #$20
 	.byte #$30
@@ -1297,7 +1168,7 @@ RedColors
 	.byte #$20
 	.byte #$30
 	.byte #$22
-	
+
 GrayCycle
 	.byte #$00
 	.byte #$04
@@ -1310,7 +1181,7 @@ GrayCycle
 	.byte #$00
 	.byte #$04
 	.byte #$08
-	
+
 PF0SpriteA
     .byte #%00000000
     .byte #%00000000
@@ -2470,9 +2341,7 @@ PF2SpriteB
     .byte #%11101110
     .byte #%11101110
 
-    .byte #%00000000
-    .byte #%00000000
-	
+
 AltPF0SpriteA
     .byte #%00000000
     .byte #%00000000
@@ -3632,8 +3501,7 @@ AltPF2SpriteB
     .byte #%00000000
     .byte #%00000000
 
-    .byte #%00000000
-    .byte #%00000000
+
     org $FFFC
     .word Start
-    .word Start 
+    .word Start
