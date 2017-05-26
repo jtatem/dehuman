@@ -658,7 +658,7 @@ PlayKickDrum
 	STA AUDF0
 	LDA #15
 	STA AUDV0
-	LDA #3
+	LDA #5
 	STA BeatDelayCounter
 	JMP DoneBeatChannel
 PlaySnareDrum
@@ -666,9 +666,9 @@ PlaySnareDrum
 	STA AUDC0
 	LDA #6
 	STA AUDF0
-	LDA #8
+	LDA #10
 	STA AUDV0
-	LDA #2
+	LDA #3
 	STA BeatDelayCounter
 	JMP DoneBeatChannel
 PlayHatClosed
