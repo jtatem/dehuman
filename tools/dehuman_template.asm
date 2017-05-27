@@ -883,18 +883,21 @@ UseNoteChannelB
 UseNoteChannelC
 	LDA NoteControlDataC-1,Y
 SetNoteChannel
+    CMP #240
+    BCC PlayNote
+    SBC #239
+    STA NoteDelayCounter
+    LDA #0
+    STA AUDV1
+    JMP DoneNoteChannel
+PlayNote
 	STA Numerator
 	LDA #10
 	STA Denominator
 	JSR divide
+	ADC #1
 	STA NoteDelayCounter
 	LDA Numerator
-	CMP #24
-	BMI NoSilence
-	LDA #0
-	STA AUDV1
-	JMP DoneNoteChannel
-NoSilence
 	STA AUDF1
 	LDA NoteInstrumentValue
 	STA AUDC1
