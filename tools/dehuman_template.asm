@@ -901,7 +901,7 @@ PlayNote
 	STA AUDF1
 	LDA NoteInstrumentValue
 	STA AUDC1
-	LDA #10
+	LDA #12
 	STA AUDV1
 DoneNoteChannel
 
