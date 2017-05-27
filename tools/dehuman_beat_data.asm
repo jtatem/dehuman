@@ -38,11 +38,6 @@ BeatControlDataB
     .byte #3
     .byte #3
     .byte #3
-    .byte #3
-    .byte #3
-    .byte #3
-    .byte #3
-    .byte #3
     .byte #4
     .byte #4
     .byte #4
@@ -97,19 +92,19 @@ BeatControlDataB
 
 
 BeatControlDataC
-    .byte #107
+    .byte #108
     .byte #2
-    .byte #105
+    .byte #106
     .byte #1
-    .byte #107
+    .byte #108
     .byte #3
-    .byte #104
-    .byte #2
-    .byte #107
-    .byte #3
-    .byte #104
-    .byte #2
     .byte #105
+    .byte #2
+    .byte #108
+    .byte #3
+    .byte #105
+    .byte #2
+    .byte #106
     .byte #1
-    .byte #105
+    .byte #106
     .byte #1
